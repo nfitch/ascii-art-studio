@@ -1,0 +1,20 @@
+{
+  "name": "@ascii-art-studio/animator",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@ascii-art-studio/compositor": "*"
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest"
+  }
+}

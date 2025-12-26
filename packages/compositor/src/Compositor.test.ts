@@ -1197,6 +1197,24 @@ describe('Compositor', () => {
       expect(output2.characters).toEqual(output1.characters);
     });
 
+    test('prevents cache corruption from user mutations', () => {
+      compositor.addObject('obj1', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+      });
+
+      const output1 = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+      // Mutate the returned output
+      output1.characters[0][0] = 'X';
+      output1.colors[0][0] = '#ff0000';
+
+      // Second render should not be affected by mutations
+      const output2 = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+      expect(output2.characters[0][0]).toBe('#');
+      expect(output2.colors[0][0]).toBe('#000000');
+    });
+
     test('invalidates cache when object added', () => {
       const output1 = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
 

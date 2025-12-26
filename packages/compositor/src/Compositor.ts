@@ -272,14 +272,21 @@ export class Compositor {
       this.viewportsEqual(vp, this.lastViewport) &&
       this.dirtyRegions.size === 0
     ) {
-      return this.cachedOutput;
+      // Return a deep clone to prevent cache corruption from user mutations
+      return {
+        characters: this.cachedOutput.characters.map(row => [...row]),
+        colors: this.cachedOutput.colors.map(row => [...row]),
+      };
     }
 
     // Render the scene
     const output = this.renderScene(vp);
 
-    // Cache the result
-    this.cachedOutput = output;
+    // Cache a deep clone to prevent corruption from user mutations
+    this.cachedOutput = {
+      characters: output.characters.map(row => [...row]),
+      colors: output.colors.map(row => [...row]),
+    };
     this.lastViewport = { ...vp };
     this.dirtyRegions.clear();
 

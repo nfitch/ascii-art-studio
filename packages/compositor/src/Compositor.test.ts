@@ -666,6 +666,40 @@ describe('Compositor', () => {
       expect(obj2.content[0][0]).toBe('#');
     });
 
+    test('prevents influence corruption from user mutations', () => {
+      // Test 1: Mutating influence object after addObject should not corrupt internal state
+      const influence = {
+        radius: 2,
+        transform: { type: 'lighten' as const, strength: 0.5, falloff: 'linear' as const },
+      };
+      compositor.addObject('obj2', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        influence,
+      });
+
+      // Mutate the original influence object
+      influence.radius = 10;
+      influence.transform.strength = 1.0;
+      influence.transform.type = 'darken';
+
+      // Verify internal state not corrupted
+      const obj = compositor.getObject('obj2');
+      expect(obj.influence?.radius).toBe(2);
+      expect(obj.influence?.transform.strength).toBe(0.5);
+      expect(obj.influence?.transform.type).toBe('lighten');
+
+      // Test 2: Mutating returned influence object should not corrupt internal state
+      obj.influence!.radius = 20;
+      obj.influence!.transform.strength = 0.9;
+      obj.influence!.transform.falloff = 'cubic';
+
+      const obj2 = compositor.getObject('obj2');
+      expect(obj2.influence?.radius).toBe(2);
+      expect(obj2.influence?.transform.strength).toBe(0.5);
+      expect(obj2.influence?.transform.falloff).toBe('linear');
+    });
+
     test('throws on non-existent ID', () => {
       expect(() => {
         compositor.getObject('nonexistent');

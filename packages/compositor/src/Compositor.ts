@@ -139,7 +139,14 @@ export class Compositor {
       position: { ...options.position },
       layer,
       color,
-      influence: options.influence,
+      influence: options.influence ? {
+        radius: options.influence.radius,
+        transform: {
+          type: options.influence.transform.type,
+          strength: options.influence.transform.strength,
+          falloff: options.influence.transform.falloff,
+        },
+      } : undefined,
       flipHorizontal: false,
       flipVertical: false,
       influenceMask,
@@ -229,7 +236,14 @@ export class Compositor {
       position: { ...obj.position },
       layer: obj.layer,
       color: obj.color,
-      influence: obj.influence,
+      influence: obj.influence ? {
+        radius: obj.influence.radius,
+        transform: {
+          type: obj.influence.transform.type,
+          strength: obj.influence.transform.strength,
+          falloff: obj.influence.transform.falloff,
+        },
+      } : undefined,
       flipHorizontal: obj.flipHorizontal,
       flipVertical: obj.flipVertical,
       bounds: { ...obj.bounds },

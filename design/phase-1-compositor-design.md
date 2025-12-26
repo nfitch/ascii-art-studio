@@ -56,53 +56,123 @@ Objects can be provided in three formats (all equivalent):
 3. Newline string: `'ab\ncd'` (split strings can be equal length)
 
 ### Output Format
-TBD - Will be determined during API design phase based on performance requirements for upstream consumers (animator, renderer).
+Separate character and color grids for memory efficiency:
+```javascript
+{
+  characters: string[][],  // 2D grid of characters
+  colors: string[][]       // 2D grid of hex colors (same dimensions)
+}
+```
 
-## Open Questions
+## Design Decisions
 
 ### 1. Same-Layer Overlap Behavior
-When multiple objects on the same layer overlap, what happens?
+**Decision:** First added wins.
 
-**Options:**
-- Last added wins (painter's algorithm)
-- Error (force user to specify layers)
-- Blend/merge (complex)
-- Insertion order matters
+When multiple objects on the same layer overlap, the first object added to that layer takes precedence. Later objects are clipped in overlapping regions.
 
-**Resolution needed:** Work through examples to determine best approach.
+**Rationale:**
+- Deterministic and predictable
+- Simple to implement
+- Gives users control via insertion order
+- No errors to handle
 
 ### 2. Transparency Detection
-How do we determine if a character cell is "inside" or "outside" an object?
+**Decision:** Explicit `null` markers with optional auto-edge detection.
 
-**Challenge:** ASCII objects are irregular shapes. A space in the middle of an object should be opaque (part of the object), but spaces at the edges should be transparent.
+**Primary method:** Use `null` values in content arrays to mark transparent cells:
+```javascript
+content: [['#', '#'], ['#', null]]  // null = transparent
+```
 
-**Possible approaches:**
-- User-defined mask/bounds
-- Algorithm to detect shape boundaries
-- Explicit transparency markers
+**Convenience method:** Optional auto-edge detection using flood fill algorithm:
+```javascript
+{
+  content: ['  ####  ', '  #  #  ', '  ####  '],
+  autoDetectEdges: true
+}
+```
 
-**Resolution needed:** Prototype different approaches, evaluate complexity vs correctness.
+Auto-edge detection:
+1. Start flood fill from all edge cells
+2. Mark all spaces reachable from edges as transparent
+3. Unreachable spaces (trapped inside) remain opaque
 
-### 3. Output Format
-What should the compositor return?
+**Rationale:**
+- Explicit control when needed (null markers)
+- Convenience for common cases (auto-detect)
+- Flood fill is intuitive and handles complex shapes
 
-**Options:**
-- Plain string (newline-delimited)
-- Array of strings (one per line)
-- 2D character array
-- Styled output (with color codes)
-- Multiple formats via different methods
+### 3. Proximity-Based Influence
+**Decision:** Objects emit influence gradients that affect lower layers.
 
-**Resolution needed:** Determine based on animator and renderer requirements.
+Each object has an **influence mask** extending beyond its visible characters. The mask defines how the object affects colors on lower layers based on distance.
 
-### 4. Continuous vs One-Shot Updates
-How does the animator interact with the compositor?
+**Key features:**
+- Influence radius (how far the effect extends)
+- Transform type (lighten, darken, multiply)
+- Strength (maximum effect at distance 0)
+- Falloff function (linear, quadratic, exponential, cubic)
 
-**Chosen approach:** Scene graph with command-based updates
-- Compositor maintains scene state
-- Animator sends commands: "move object A", "add object B"
-- Compositor tracks dirty regions
-- Render only when requested
+**Example:**
+Object with radius=2, lighten 50%, linear falloff creates mask:
+```
+null, null, 25%, 25%, 25%, null
+null, 25%, 50%, 50%, 50%, 25%
+25%, 50%, 100%, 100%, 100%, 50%
+null, 25%, 50%, 50%, 50%, 25%
+```
+- 100% = opaque character position (blocks lower layer)
+- <100% = influence strength (lightens color of lower layer)
+- null = no influence
+
+**Rationale:**
+- Creates atmospheric effects (glows, shadows, halos)
+- Core feature that makes compositor unique
+- Essential for visual richness in ASCII art
+
+### 4. Transform Accumulation
+**Decision:** Top-down rendering with additive transparency accumulation.
+
+**Rendering algorithm:**
+```javascript
+function renderCell(x, y) {
+  let accumulatedTransparency = 0;
+
+  for (let layer of layers) {  // top → bottom
+
+    if (accumulatedTransparency >= 100) {
+      return ' ';  // completely transparent
+    }
+
+    if (layer.content[x][y] !== null) {
+      return applyTransparency(layer.content[x][y], accumulatedTransparency);
+    }
+
+    if (layer.transparencyMask[x][y] !== null) {
+      accumulatedTransparency += layer.transparencyMask[x][y];
+    }
+
+    if (accumulatedTransparency >= 100) {
+      return ' ';
+    }
+  }
+
+  return ' ';  // no content found
+}
+```
+
+**Key points:**
+- Traverse layers top to bottom
+- Accumulate transparency values (0-100%)
+- When accumulated transparency >= 100, render blank
+- When content found, apply accumulated transparency to its color
+- `null` in mask = no influence from that layer
+
+**Rationale:**
+- Additive accumulation is intuitive
+- Multiple objects can combine effects
+- Top-down makes layer precedence clear
 
 ## Architecture Decisions
 
@@ -151,27 +221,47 @@ Objects can be modified in place rather than recreated.
 
 ### Core Types (Conceptual)
 
-```
-AsciiObject {
-  id: string
-  content: CharacterMatrix  // Internal representation
-  position: { x: number, y: number }
-  layer: number
-  color?: string  // Hex code, optional
-  bounds: { minX, minY, maxX, maxY }  // Cached bounds
+```typescript
+type Cell = string | null;  // string = character, null = transparent
+
+interface Influence {
+  radius: number;
+  transform: {
+    type: 'lighten' | 'darken' | 'multiply';
+    strength: number;  // 0.0-1.0, max effect at distance 0
+    falloff: 'linear' | 'quadratic' | 'exponential' | 'cubic';
+  };
 }
 
-Scene {
-  objects: Map<string, AsciiObject>
-  dirtyRegions: BooleanGrid
-  canvasBounds: { minX, minY, maxX, maxY }
+interface AsciiObject {
+  id: string;
+  content: Cell[][];  // 2D grid, null = transparent
+  position: { x: number; y: number };
+  layer: number;
+  color: string;  // Hex code at full opacity
+  influence?: Influence;
+
+  // Computed/cached
+  transparencyMask: (number | null)[][];  // Influence mask (0-100% or null)
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
-Viewport {
-  x: number
-  y: number
-  width: number
-  height: number
+interface Scene {
+  objects: Map<string, AsciiObject>;
+  dirtyRegions: boolean[][];
+  canvasBounds: { minX: number; minY: number; maxX: number; maxY: number };
+}
+
+interface Viewport {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface RenderOutput {
+  characters: string[][];  // 2D grid of characters
+  colors: string[][];      // 2D grid of hex colors (same dimensions)
 }
 ```
 
@@ -193,16 +283,111 @@ getCanvasBounds(): Bounds
 
 ## Technical Approach
 
-### Edge Detection Strategy
-For determining transparent vs opaque regions in irregular ASCII objects:
+### Transparency Mask Generation
+When an object is added with `autoDetectEdges: true`:
 
-**Approach TBD** - Requires prototyping and examples.
+**Flood Fill Algorithm:**
+```javascript
+function generateTransparencyMask(content: Cell[][]): Cell[][] {
+  const mask = deepClone(content);
+  const visited = new Set<string>();
 
-Potential strategies:
-1. Flood fill from edges to find "outside" regions
-2. User-provided bounding shape
-3. Ray casting to determine inside/outside
-4. Explicit transparency channel in input
+  // Flood fill from all edge cells
+  for (let y = 0; y < height; y++) {
+    floodFill(mask, 0, y, visited);      // left edge
+    floodFill(mask, width-1, y, visited); // right edge
+  }
+  for (let x = 0; x < width; x++) {
+    floodFill(mask, x, 0, visited);         // top edge
+    floodFill(mask, x, height-1, visited);  // bottom edge
+  }
+
+  return mask;
+}
+
+function floodFill(mask: Cell[][], x: number, y: number, visited: Set<string>) {
+  if (out of bounds || visited.has(`${x},${y}`)) return;
+  if (mask[y][x] !== ' ') return;  // not a space
+
+  visited.add(`${x},${y}`);
+  mask[y][x] = null;  // mark as transparent
+
+  // Recursively fill adjacent cells
+  floodFill(mask, x+1, y, visited);
+  floodFill(mask, x-1, y, visited);
+  floodFill(mask, x, y+1, visited);
+  floodFill(mask, x, y-1, visited);
+}
+```
+
+### Influence Mask Generation
+When an object has an `influence` property, generate an extended mask:
+
+**Algorithm:**
+```javascript
+function generateInfluenceMask(content: Cell[][], influence: Influence): (number | null)[][] {
+  const { radius, transform } = influence;
+  const { strength, falloff } = transform;
+
+  // Create extended grid (content + radius padding on all sides)
+  const maskWidth = contentWidth + (radius * 2);
+  const maskHeight = contentHeight + (radius * 2);
+  const mask = new Array(maskHeight).fill(null).map(() => new Array(maskWidth).fill(null));
+
+  // For each content cell
+  for (let cy = 0; cy < contentHeight; cy++) {
+    for (let cx = 0; cx < contentWidth; cx++) {
+      if (content[cy][cx] === null) continue;  // transparent cell, skip
+
+      // Mark this position as 100 (opaque)
+      const mx = cx + radius;
+      const my = cy + radius;
+      mask[my][mx] = 100;
+
+      // Generate influence gradient around this cell
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx === 0 && dy === 0) continue;  // already set to 100
+
+          const distance = Math.sqrt(dx*dx + dy*dy);
+          if (distance > radius) continue;
+
+          const influenceStrength = calculateFalloff(distance, radius, strength, falloff);
+          const targetX = mx + dx;
+          const targetY = my + dy;
+
+          // Take maximum influence if multiple cells affect same position
+          mask[targetY][targetX] = Math.max(mask[targetY][targetX] || 0, influenceStrength);
+        }
+      }
+    }
+  }
+
+  return mask;
+}
+
+function calculateFalloff(distance: number, radius: number, strength: number, falloff: string): number {
+  const normalized = distance / radius;  // 0.0 to 1.0
+
+  let factor;
+  switch (falloff) {
+    case 'linear':
+      factor = 1 - normalized;
+      break;
+    case 'quadratic':
+      factor = 1 - (normalized * normalized);
+      break;
+    case 'exponential':
+      factor = Math.exp(-normalized * 3);  // e^(-3x)
+      break;
+    case 'cubic':
+      factor = 1 - (normalized * normalized * normalized);
+      break;
+  }
+
+  return factor * strength * 100;  // return 0-100
+}
+```
 
 ### Performance Optimizations
 
@@ -219,10 +404,11 @@ Potential strategies:
 
 ## Next Steps
 
-1. Work through examples for same-layer overlap behavior
-2. Prototype transparency detection approaches
-3. Design TypeScript API in detail
+1. ~~Work through examples for same-layer overlap behavior~~ ✓ **Complete** - First added wins
+2. ~~Prototype transparency detection approaches~~ ✓ **Complete** - Null markers + flood fill
+3. **IN PROGRESS:** Design TypeScript API in detail
 4. Define exact data structures and algorithms
-5. Write comprehensive test suite
+5. Write comprehensive test suite (TDD)
 6. Implement core compositor
 7. Benchmark and optimize
+8. Build frontend examples

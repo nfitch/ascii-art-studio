@@ -215,6 +215,20 @@ function getHtml(): string {
     'Frame 3: Approaching',
     'Frame 4: Getting Close',
     'Frame 5: Meeting',
+    'Frame 6: Curtain Appears',
+    'Frame 7: Curtain Descending',
+    'Frame 8: Curtain Descending',
+    'Frame 9: Curtain Descending',
+    'Frame 10: Curtain Descending',
+    'Frame 11: Curtain Descending',
+    'Frame 12: Curtain Descending',
+    'Frame 13: Curtain Midway',
+    'Frame 14: Curtain Descending',
+    'Frame 15: Curtain Descending',
+    'Frame 16: Curtain Descending',
+    'Frame 17: Curtain Descending',
+    'Frame 18: Curtain Lower',
+    'Frame 19: Curtain Exits',
   ];
 
   return `

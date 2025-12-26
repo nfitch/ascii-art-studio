@@ -245,6 +245,8 @@ interface AsciiObject {
   layer: number;
   color: string;  // Hex code at full opacity
   influence?: Influence;
+  flipHorizontal: boolean;  // True if flipped horizontally
+  flipVertical: boolean;    // True if flipped vertically
 
   // Computed/cached
   transparencyMask: (number | null)[][];  // Influence mask (0-100% or null)
@@ -272,20 +274,32 @@ interface RenderOutput {
 }
 ```
 
-### Operations (Conceptual)
+### Operations
 
+**Implemented operations:**
 ```
-// Scene Management
-addObject(id, content, position, layer, color?)
+// Object Management
+addObject(id, options: { content, position, layer?, color?, influence?, autoDetectEdges? })
 removeObject(id)
 moveObject(id, newPosition)
-updateObject(id, newContent)
-setObjectLayer(id, newLayer)
-setObjectColor(id, newColor)
+flipHorizontal(id)           // Toggle horizontal flip state
+flipVertical(id)             // Toggle vertical flip state
+setFlipHorizontal(id, flipped)  // Set horizontal flip to specific state
+setFlipVertical(id, flipped)    // Set vertical flip to specific state
+getObject(id): CompositorObject
+listObjects(): CompositorObject[]
 
 // Rendering
-render(viewport): Output
+render(viewport?): RenderOutput
 getCanvasBounds(): Bounds
+```
+
+**Future operations (not implemented):**
+```
+// Potential enhancements for later phases
+updateObject(id, newContent)    // Update content without recreating object
+setObjectLayer(id, newLayer)    // Change layer without recreating object
+setObjectColor(id, newColor)    // Change color without recreating object
 ```
 
 ## Technical Approach

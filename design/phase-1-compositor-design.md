@@ -459,11 +459,15 @@ After basic implementation is complete, experiment with:
    - Screen, overlay, color dodge, etc.
    - Based on need and performance impact
 
+## Related Documents
+
+- [phase-1-compositor-api.md](phase-1-compositor-api.md) - TypeScript API specification
+
 ## Next Steps
 
 1. ~~Work through examples for same-layer overlap behavior~~ ✓ **Complete** - First added wins
 2. ~~Prototype transparency detection approaches~~ ✓ **Complete** - Null markers + flood fill
-3. **IN PROGRESS:** Design TypeScript API in detail
+3. ~~Design TypeScript API in detail~~ ✓ **Complete** - See phase-1-compositor-api.md
 4. Define exact data structures and algorithms
 5. Write comprehensive test suite (TDD)
 6. Implement core compositor

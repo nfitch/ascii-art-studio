@@ -30,11 +30,14 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
   - [x] Proximity-based influence system
   - [x] Space vs null distinction documented
   - [x] Future experiments identified (multiply, glass panes, colored spaces)
-- [ ] Deep-dive TypeScript API design
-  - [ ] Interface definitions
-  - [ ] Type system design
-  - [ ] API surface documentation
-  - [ ] Initial implementation: lighten and darken only
+- [x] Deep-dive TypeScript API design
+  - [x] Interface definitions
+  - [x] Type system design
+  - [x] API surface documentation
+  - [x] Constructor with initial objects and default viewport
+  - [x] Object management methods (add, remove, move, flip)
+  - [x] Rendering methods (render with dirty optimization)
+  - [x] Initial implementation: lighten and darken only
 - [ ] Comprehensive tests against API
   - [ ] Unit test suite
   - [ ] Integration tests

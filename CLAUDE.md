@@ -54,7 +54,9 @@ All design documents are in the `design/` directory:
 - [design/02-requirements.md](design/02-requirements.md) - Requirements
 - [design/project-checklist.md](design/project-checklist.md) - Main project checklist
 
-Phase-specific design documents will be created as we progress through each phase.
+**Phase 1 (Compositor):**
+- [design/phase-1-compositor-design.md](design/phase-1-compositor-design.md) - Design and architecture
+- [design/phase-1-compositor-api.md](design/phase-1-compositor-api.md) - TypeScript API specification
 
 ### Critical Rules
 

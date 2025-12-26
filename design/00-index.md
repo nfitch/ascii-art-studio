@@ -8,8 +8,12 @@
 - [02-requirements.md](02-requirements.md) - Requirements and scope
 
 ## Phase-Specific Design Documents
-Design documents for each phase will be created as we progress:
-- Phase 1: Compositor module
+
+### Phase 1: Compositor Module
+- [phase-1-compositor-design.md](phase-1-compositor-design.md) - Design decisions and architecture
+- [phase-1-compositor-api.md](phase-1-compositor-api.md) - TypeScript API specification
+
+### Future Phases
 - Phase 2: Animator module
 - Phase 3: Zoom module
 - Phase 4: Image-to-ASCII module

@@ -55,7 +55,6 @@ export interface RenderOutput {
 }
 
 interface InternalObject extends CompositorObject {
-  originalContent: Cell[][];  // Original content before flips
   influenceMask: (number | null)[][];
 }
 
@@ -71,9 +70,12 @@ export class Compositor {
 
     if (initialObjects) {
       for (const obj of initialObjects) {
-        this.addObject(obj.id!, {
-          content: obj.content!,
-          position: obj.position!,
+        if (!obj.id || !obj.content || !obj.position) {
+          throw new Error('Invalid initial object: missing required fields (id, content, position)');
+        }
+        this.addObject(obj.id, {
+          content: obj.content,
+          position: obj.position,
           color: obj.color,
           layer: obj.layer,
           influence: obj.influence,
@@ -99,7 +101,7 @@ export class Compositor {
     let content = this.normalizeContent(options.content);
 
     // Validate content
-    if (content.length === 0) {
+    if (content.length === 0 || content[0].length === 0) {
       throw new Error('Content must be non-empty');
     }
 
@@ -112,6 +114,9 @@ export class Compositor {
     if (options.influence) {
       if (options.influence.radius <= 0 || !Number.isInteger(options.influence.radius)) {
         throw new Error('Influence radius must be positive integer');
+      }
+      if (options.influence.transform.strength < 0 || options.influence.transform.strength > 1.0) {
+        throw new Error('Influence strength must be between 0.0 and 1.0');
       }
     }
 
@@ -126,7 +131,6 @@ export class Compositor {
     const internalObject: InternalObject = {
       id,
       content: this.cloneContent(content),
-      originalContent: this.cloneContent(content),
       position: { ...options.position },
       layer,
       color,
@@ -376,23 +380,18 @@ export class Compositor {
             }
           }
 
-          // Mask value < 100, accumulate transparency
+          // Mask value < 100, accumulate transparency based on transform type
           if (maskValue > 0 && maskValue < 100) {
-            accumulatedTransparency += maskValue;
+            if (obj.influence!.transform.type === 'lighten') {
+              accumulatedTransparency += maskValue;
+            } else if (obj.influence!.transform.type === 'darken') {
+              accumulatedTransparency -= maskValue;
+            }
           }
 
           // Check again if accumulated transparency >= 100
           if (accumulatedTransparency >= 100) {
             return { char: ' ', color: '#000000' };
-          }
-
-          // Check if this layer has content at this position (but not already handled above)
-          if (maskValue !== 100 && localY >= 0 && localY < obj.content.length && localX >= 0 && localX < obj.content[localY].length) {
-            const cell = obj.content[localY][localX];
-            if (cell !== null && cell !== ' ') {
-              const transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
-              return { char: cell, color: transformedColor };
-            }
           }
         }
       }

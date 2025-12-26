@@ -44,6 +44,39 @@ describe('Compositor', () => {
         ]);
       }).toThrow('Invalid content format: rows have unequal lengths');
     });
+
+    test('throws on initial object missing id', () => {
+      expect(() => {
+        new Compositor([
+          {
+            content: [['#']],
+            position: { x: 0, y: 0 },
+          } as any,
+        ]);
+      }).toThrow('Invalid initial object: missing required fields (id, content, position)');
+    });
+
+    test('throws on initial object missing content', () => {
+      expect(() => {
+        new Compositor([
+          {
+            id: 'obj1',
+            position: { x: 0, y: 0 },
+          } as any,
+        ]);
+      }).toThrow('Invalid initial object: missing required fields (id, content, position)');
+    });
+
+    test('throws on initial object missing position', () => {
+      expect(() => {
+        new Compositor([
+          {
+            id: 'obj1',
+            content: [['#']],
+          } as any,
+        ]);
+      }).toThrow('Invalid initial object: missing required fields (id, content, position)');
+    });
   });
 
   describe('addObject', () => {
@@ -223,10 +256,58 @@ describe('Compositor', () => {
       }).toThrow('Influence radius must be positive integer');
     });
 
+    test('throws on non-integer influence radius', () => {
+      expect(() => {
+        compositor.addObject('obj1', {
+          content: [['#']],
+          position: { x: 0, y: 0 },
+          influence: {
+            radius: 1.5,
+            transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
+          },
+        });
+      }).toThrow('Influence radius must be positive integer');
+    });
+
+    test('throws on influence strength below 0', () => {
+      expect(() => {
+        compositor.addObject('obj1', {
+          content: [['#']],
+          position: { x: 0, y: 0 },
+          influence: {
+            radius: 1,
+            transform: { type: 'lighten', strength: -0.1, falloff: 'linear' },
+          },
+        });
+      }).toThrow('Influence strength must be between 0.0 and 1.0');
+    });
+
+    test('throws on influence strength above 1.0', () => {
+      expect(() => {
+        compositor.addObject('obj1', {
+          content: [['#']],
+          position: { x: 0, y: 0 },
+          influence: {
+            radius: 1,
+            transform: { type: 'lighten', strength: 1.1, falloff: 'linear' },
+          },
+        });
+      }).toThrow('Influence strength must be between 0.0 and 1.0');
+    });
+
     test('throws on empty content', () => {
       expect(() => {
         compositor.addObject('obj1', {
           content: [],
+          position: { x: 0, y: 0 },
+        });
+      }).toThrow('Content must be non-empty');
+    });
+
+    test('throws on empty row', () => {
+      expect(() => {
+        compositor.addObject('obj1', {
+          content: [[]],
           position: { x: 0, y: 0 },
         });
       }).toThrow('Content must be non-empty');

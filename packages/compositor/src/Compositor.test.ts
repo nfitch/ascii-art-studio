@@ -1162,12 +1162,12 @@ describe('Compositor', () => {
         position: { x: 0, y: 0 },
       });
 
-      const output1 = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+      compositor.render({ x: 0, y: 0, width: 2, height: 1 });
 
       compositor.flipHorizontal('obj1');
 
-      const output2 = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
-      expect(output2.characters[0]).toEqual(['b', 'a']);
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+      expect(output.characters[0]).toEqual(['b', 'a']);
     });
 
     test('re-renders when viewport changes', () => {

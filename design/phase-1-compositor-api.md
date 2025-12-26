@@ -8,9 +8,10 @@ This document defines the complete TypeScript API for the ASCII Compositor modul
 
 ```typescript
 export { Compositor };
+export type { AddObjectOptions, CompositorObject, RenderOutput };
 ```
 
-For initial implementation, only the Compositor class is exported. Types and interfaces remain internal.
+The Compositor class and essential TypeScript interfaces are exported for public use. Internal types (Cell, Position, Influence, Bounds, Viewport, InternalObject) remain private.
 
 ## Core API
 
@@ -507,15 +508,15 @@ try {
 
 ## Performance Characteristics
 
-### Dirty Region Tracking
+### Viewport Caching
 
-The compositor maintains a dirty region grid to optimize rendering:
+The compositor uses whole-viewport caching to optimize rendering:
 
 - **addObject**: Marks object bounds (including influence) as dirty
 - **removeObject**: Marks old object bounds as dirty
 - **moveObject**: Marks both old and new bounds as dirty
-- **flipHorizontal/flipVertical/setFlipHorizontal/setFlipVertical**: Marks old and new bounds as dirty (content dimensions may change after flip)
-- **render**: Only recomputes dirty regions, returns cached for clean regions
+- **flipHorizontal/flipVertical/setFlipHorizontal/setFlipVertical**: Marks bounds as dirty and regenerates influence mask if present
+- **render**: Returns cached result if viewport unchanged and no dirty regions, otherwise re-renders entire viewport
 
 ### Layer Management
 

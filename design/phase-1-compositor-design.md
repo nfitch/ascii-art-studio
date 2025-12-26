@@ -2,7 +2,7 @@
 
 ## Overview
 
-The ASCII Compositor is the foundational module for the ASCII Art Studio. It manages a scene graph of ASCII objects, handles rendering with proper layering and transparency, and provides efficient updates through dirty region tracking.
+The ASCII Compositor is the foundational module for the ASCII Art Studio. It manages a scene graph of ASCII objects, handles rendering with proper layering and transparency, and provides efficient updates through viewport caching.
 
 ## Core Concepts
 
@@ -190,20 +190,25 @@ The compositor acts as a scene manager rather than a stateless renderer.
 - Must maintain scene graph state
 - Need proper object lifecycle management
 
-### Dirty Region Tracking
-Only recompute regions that have changed since last render.
+### Viewport Caching
+Cache the entire rendered viewport and reuse when nothing has changed.
 
 **Rationale:**
 - Critical for animation performance
 - ASCII rendering can be expensive for large canvases
-- Most animations change small portions of scene
+- Most frames have no changes (static scenes)
 
 **Implementation:**
-- Boolean grid tracking which cells are dirty
+- Cache complete viewport render result
+- Track dirty regions using Set of coordinate strings
 - Mark regions dirty on object move/modify/add/remove
-- Clear dirty flags after render
+- Return cached result if viewport unchanged and no dirty regions
+- Otherwise re-render entire viewport and update cache
 
-**Size impact:** Minimal (just a boolean array)
+**Tradeoffs:**
+- Whole-viewport re-render when any region dirty
+- Could be optimized to per-cell dirty tracking (Future Experiment)
+- Current approach simpler and sufficient for most use cases
 
 ### Mutable Objects
 Objects can be modified in place rather than recreated.
@@ -248,7 +253,9 @@ interface AsciiObject {
 
 interface Scene {
   objects: Map<string, AsciiObject>;
-  dirtyRegions: boolean[][];
+  dirtyRegions: Set<string>;  // Coordinate strings: "x,y"
+  cachedOutput?: RenderOutput;
+  lastViewport?: Viewport;
   canvasBounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
@@ -391,10 +398,10 @@ function calculateFalloff(distance: number, radius: number, strength: number, fa
 
 ### Performance Optimizations
 
-1. **Spatial indexing** - Consider quadtree or grid-based indexing for large scenes
-2. **Layer culling** - Skip layers completely occluded by higher layers
-3. **Viewport culling** - Don't process objects outside viewport
-4. **Dirty region merging** - Combine adjacent dirty regions to reduce overhead
+1. **Viewport caching** - Cache entire rendered viewport (implemented)
+2. **Spatial indexing** - Consider quadtree or grid-based indexing for large scenes
+3. **Layer culling** - Skip layers completely occluded by higher layers
+4. **Viewport culling** - Don't process objects outside viewport
 
 ### Memory Management
 
@@ -419,10 +426,14 @@ content: [['#', null, '#']]  // Middle cell shows lower layer
 content: [['#', ' ', '#']]   // Middle cell blocks lower layer, renders as space
 ```
 
-**Implications:**
-- Space characters can have colors and influence effects
-- Potential for "glass pane" effects - all spaces with color and influence
-- Space character rendering behavior TBD (see Future Experiments)
+**Implemented behavior:**
+- Space characters WITH influence act as transparent (glass pane effect)
+  - Allow lower layers to show through
+  - Apply influence transform to lower layer colors
+  - Enable atmospheric effects and tinted regions
+- Space characters WITHOUT influence render as opaque spaces
+  - Block lower layers from showing
+  - Display using the object's color
 
 ### Transform Type Semantics
 
@@ -436,28 +447,21 @@ The influence transform type determines how lower layer colors are affected:
 
 ## Future Experiments
 
-After basic implementation is complete, experiment with:
+Potential enhancements for future consideration:
 
-1. **Colored space characters**
-   - How should space characters with colors render?
-   - Option A: Space blocks but shows as blank (invisible glyph)
-   - Option B: Space shows its color as background
-   - Option C: Space is only for blocking + influence, color only applies to visible chars
-   - Decide based on practical use cases
-
-2. **Multiply transform**
+1. **Multiply transform**
    - Color blending between layers
    - Experiment with different blending algorithms
    - May enable interesting overlay effects
 
-3. **Glass pane effects**
-   - Objects made entirely of space characters
-   - Have color and influence but no visible glyphs
-   - Could create atmospheric effects, tinted regions
-
-4. **Additional transform types**
+2. **Additional transform types**
    - Screen, overlay, color dodge, etc.
    - Based on need and performance impact
+
+3. **Per-cell dirty region optimization**
+   - Current implementation uses whole-viewport caching
+   - Could optimize to only recompute changed cells
+   - Complexity: influence effects span multiple cells
 
 ## Related Documents
 

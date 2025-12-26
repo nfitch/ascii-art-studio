@@ -3,6 +3,8 @@
  * Interactive showcase and playground
  */
 
+import { renderBasicLayeringDemo } from './demos/basic-layering';
+
 // Demo registry
 const demos = [
   { id: 'basic-layering', title: 'Basic Layering' },
@@ -61,29 +63,35 @@ function selectDemo(id: string) {
   const body = document.getElementById('content-body');
 
   if (body) {
-    body.innerHTML = `
-      <div class="demo-container">
-        <h2>${demo.title}</h2>
+    // Route to specific demo implementations
+    if (id === 'basic-layering') {
+      body.innerHTML = renderBasicLayeringDemo();
+    } else {
+      // Placeholder for other demos
+      body.innerHTML = `
+        <div class="demo-container">
+          <h2>${demo.title}</h2>
 
-        <div class="demo-description">
-          Demo: ${demo.title}
-        </div>
-
-        <div class="demo-controls">
-          <div class="control-group">
-            <button>Button 1</button>
-            <button>Button 2</button>
+          <div class="demo-description">
+            Demo: ${demo.title}
           </div>
-        </div>
 
-        <div class="demo-output">
+          <div class="demo-controls">
+            <div class="control-group">
+              <button>Button 1</button>
+              <button>Button 2</button>
+            </div>
+          </div>
+
+          <div class="demo-output">
 Demo output will go here...
 
 ####
 ####
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   }
 }
 

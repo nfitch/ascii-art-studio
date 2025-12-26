@@ -70,3 +70,8 @@
 
 ## Nice-to-Haves (Post-Initial Release)
 To be determined as project evolves and usage patterns emerge.
+
+## Related Documents
+
+- [01-project-overview.md](01-project-overview.md) - Project overview and problem statement
+- [project-checklist.md](project-checklist.md) - Project implementation checklist

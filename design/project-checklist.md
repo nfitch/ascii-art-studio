@@ -22,15 +22,15 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
 
 ---
 
-## Phase 1: ASCII Compositor Module
-- [x] Design Document
+## Phase 1: Compositor Module
+- [x] Design Document - [phase-1-compositor-design.md](phase-1-compositor-design.md)
   - [x] Domain model and core concepts
   - [x] Architecture design
   - [x] Key technical decisions
   - [x] Proximity-based influence system
   - [x] Space vs null distinction documented
   - [x] Future experiments identified (multiply, glass panes, colored spaces)
-- [x] Deep-dive TypeScript API design
+- [x] Deep-dive TypeScript API design - [phase-1-compositor-api.md](phase-1-compositor-api.md)
   - [x] Interface definitions
   - [x] Type system design
   - [x] API surface documentation

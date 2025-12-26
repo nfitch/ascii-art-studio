@@ -28,3 +28,8 @@ Each module is independently usable (except animator depends on compositor) and 
 - Hosted on GitHub Pages
 - Comprehensive API documentation
 - Full test coverage
+
+## Related Documents
+
+- [02-requirements.md](02-requirements.md) - Requirements and scope
+- [project-checklist.md](project-checklist.md) - Project implementation checklist

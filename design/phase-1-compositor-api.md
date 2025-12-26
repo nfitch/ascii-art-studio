@@ -667,3 +667,7 @@ interface InternalObject {
   bounds: Bounds;  // Including influence radius
 }
 ```
+
+## Related Documents
+
+- [phase-1-compositor-design.md](phase-1-compositor-design.md) - Design decisions and architecture

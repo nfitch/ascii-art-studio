@@ -465,11 +465,7 @@ After basic implementation is complete, experiment with:
 
 ## Next Steps
 
-1. ~~Work through examples for same-layer overlap behavior~~ ✓ **Complete** - First added wins
-2. ~~Prototype transparency detection approaches~~ ✓ **Complete** - Null markers + flood fill
-3. ~~Design TypeScript API in detail~~ ✓ **Complete** - See phase-1-compositor-api.md
-4. Define exact data structures and algorithms
-5. Write comprehensive test suite (TDD)
-6. Implement core compositor
-7. Benchmark and optimize
-8. Build frontend examples
+1. Write comprehensive test suite (TDD)
+2. Implement core compositor
+3. Benchmark and optimize
+4. Build frontend examples

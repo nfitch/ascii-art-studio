@@ -98,10 +98,16 @@ function renderOutput(output: { characters: string[][]; colors: string[][] }): s
 // Global functions for button handlers
 (window as any).basicLayeringAddLayer = () => {
   const newLayer = layers.length;
-  const chars = ['*', '+', 'X', 'O', '%'];
-  const colors = ['#00ff00', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'];
-  const char = chars[newLayer % chars.length];
-  const color = colors[newLayer % colors.length];
+  const chars = ['*', '+', 'X', 'O', '%', '#', '@', '=', '~', '&', '$'];
+
+  // Random character
+  const char = chars[Math.floor(Math.random() * chars.length)];
+
+  // Random darker color (RGB values 0-180 for darker shades)
+  const r = Math.floor(Math.random() * 180);
+  const g = Math.floor(Math.random() * 180);
+  const b = Math.floor(Math.random() * 180);
+  const color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 
   const id = `layer${nextId++}`;
   layers.push({ id, layer: newLayer, char, color });

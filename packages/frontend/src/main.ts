@@ -6,6 +6,7 @@
 import { renderBasicLayeringDemo } from './demos/basic-layering';
 import { renderInfluenceExplorerDemo } from './demos/influence-explorer';
 import { renderGlassPaneDemo } from './demos/glass-pane';
+import { renderAnimationDemo } from './demos/animation';
 
 // Demo registry
 const demos = [
@@ -72,6 +73,8 @@ function selectDemo(id: string) {
       body.innerHTML = renderInfluenceExplorerDemo();
     } else if (id === 'glass-pane') {
       body.innerHTML = renderGlassPaneDemo();
+    } else if (id === 'animation') {
+      body.innerHTML = renderAnimationDemo();
     } else {
       // Placeholder for other demos
       body.innerHTML = `

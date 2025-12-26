@@ -97,6 +97,11 @@ export class Compositor {
       throw new Error('Invalid color format: must be #RRGGBB');
     }
 
+    // Validate layer
+    if (!Number.isInteger(layer)) {
+      throw new Error('Layer must be an integer');
+    }
+
     // Normalize content
     let content = this.normalizeContent(options.content);
 

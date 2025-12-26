@@ -132,6 +132,16 @@ describe('Compositor', () => {
       expect(obj.layer).toBe(5);
     });
 
+    test('throws on non-integer layer', () => {
+      expect(() => {
+        compositor.addObject('obj1', {
+          content: [['#']],
+          position: { x: 0, y: 0 },
+          layer: 1.5,
+        });
+      }).toThrow('Layer must be an integer');
+    });
+
     test('adds object with null (transparent) cells', () => {
       compositor.addObject('obj1', {
         content: [['#', null], [null, '#']],

@@ -146,6 +146,10 @@ const compositor = new Compositor(
 );
 ```
 
+**Errors thrown:**
+- `Error: Invalid initial object: missing required fields (id, content, position)`
+- All errors from `addObject()` (see addObject error list)
+
 ## Object Management Methods
 
 ### addObject
@@ -211,9 +215,12 @@ compositor.addObject('obj3', {
 
 **Errors thrown:**
 - `Error: Object with id '${id}' already exists`
+- `Error: Content must be non-empty`
 - `Error: Invalid content format: rows have unequal lengths`
 - `Error: Invalid color format: must be #RRGGBB`
+- `Error: Layer must be an integer`
 - `Error: Influence radius must be positive integer`
+- `Error: Influence strength must be between 0.0 and 1.0`
 
 ### removeObject
 

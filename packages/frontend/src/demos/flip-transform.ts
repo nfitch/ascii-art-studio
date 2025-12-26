@@ -12,9 +12,27 @@ let flipV = false;
 export function renderFlipTransformDemo(): string {
   compositor = new Compositor([], { x: 0, y: 0, width: 50, height: 20 });
 
+  // Add background pattern
+  addBackgroundPattern();
+
   updateObject();
 
   return getHtml();
+}
+
+function addBackgroundPattern() {
+  // Create a solid dot background
+  const pattern: string[] = [];
+  for (let y = 0; y < 20; y++) {
+    pattern.push('.'.repeat(50));
+  }
+
+  compositor.addObject('background', {
+    content: pattern,
+    position: { x: 0, y: 0 },
+    color: '#404040', // Darker for more contrast
+    layer: -1, // Behind the arrow
+  });
 }
 
 function createArrowShape(): (string | null)[][] {
@@ -47,11 +65,11 @@ function updateObject() {
     color: '#000000',
     layer: 0,
     influence: {
-      radius: 5,
+      radius: 7,
       transform: {
         type: 'lighten',
-        strength: 0.7,
-        falloff: 'quadratic',
+        strength: 1.0,
+        falloff: 'linear',
       },
     },
   });

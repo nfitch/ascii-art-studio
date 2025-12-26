@@ -106,11 +106,19 @@ function renderOutput(output: { characters: string[][]; colors: string[][] }): s
   const id = `layer${nextId++}`;
   layers.push({ id, layer: newLayer, char, color });
 
+  // Random size between 3x6 and 6x12
+  const width = Math.floor(Math.random() * 7) + 6;
+  const height = Math.floor(Math.random() * 4) + 3;
+
+  // Random position within viewport bounds (40x15)
+  const x = Math.floor(Math.random() * (40 - width));
+  const y = Math.floor(Math.random() * (15 - height));
+
   compositor.addObject(id, {
-    content: Array(4)
+    content: Array(height)
       .fill(null)
-      .map(() => Array(8).fill(char)),
-    position: { x: 5 + newLayer * 3, y: 3 + newLayer * 2 },
+      .map(() => Array(width).fill(char)),
+    position: { x, y },
     color,
     layer: newLayer,
   });

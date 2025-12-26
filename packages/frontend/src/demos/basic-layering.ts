@@ -62,7 +62,7 @@ function getHtml(): string {
 
       <div class="demo-description">
         Demonstrates layer-based rendering. Higher layer numbers appear on top of lower layers.
-        Try adding, removing, or reordering layers to see how they stack.
+        Try adding or removing layers to see how they stack.
       </div>
 
       <div class="demo-controls">

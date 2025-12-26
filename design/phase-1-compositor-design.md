@@ -227,7 +227,7 @@ type Cell = string | null;  // string = character, null = transparent
 interface Influence {
   radius: number;
   transform: {
-    type: 'lighten' | 'darken' | 'multiply';
+    type: 'lighten' | 'darken';  // Initial implementation only (multiply TBD)
     strength: number;  // 0.0-1.0, max effect at distance 0
     falloff: 'linear' | 'quadratic' | 'exponential' | 'cubic';
   };
@@ -401,6 +401,63 @@ function calculateFalloff(distance: number, radius: number, strength: number, fa
 - Object pooling for frequently created/destroyed objects (if needed)
 - Efficient character matrix representation (avoid 2D arrays if possible)
 - Reuse buffers for rendering output
+
+## Important Distinctions
+
+### Space vs Null
+**Critical:** `' '` (space character) is NOT the same as `null`.
+
+- `null` = Transparent cell, allows lower layer to show through
+- `' '` = Actual space character, blocks lower layer (opaque)
+
+**Example:**
+```javascript
+// Transparent holes
+content: [['#', null, '#']]  // Middle cell shows lower layer
+
+// Opaque spaces
+content: [['#', ' ', '#']]   // Middle cell blocks lower layer, renders as space
+```
+
+**Implications:**
+- Space characters can have colors and influence effects
+- Potential for "glass pane" effects - all spaces with color and influence
+- Space character rendering behavior TBD (see Future Experiments)
+
+### Transform Type Semantics
+
+The influence transform type determines how lower layer colors are affected:
+
+- **lighten**: Adds transparency effect (lightens lower layer's color)
+- **darken**: Removes transparency effect (darkens lower layer's color)
+- **multiply**: Color blending - **NOT IMPLEMENTED YET** (see Future Experiments)
+
+**For initial implementation:** Only `lighten` and `darken` are supported.
+
+## Future Experiments
+
+After basic implementation is complete, experiment with:
+
+1. **Colored space characters**
+   - How should space characters with colors render?
+   - Option A: Space blocks but shows as blank (invisible glyph)
+   - Option B: Space shows its color as background
+   - Option C: Space is only for blocking + influence, color only applies to visible chars
+   - Decide based on practical use cases
+
+2. **Multiply transform**
+   - Color blending between layers
+   - Experiment with different blending algorithms
+   - May enable interesting overlay effects
+
+3. **Glass pane effects**
+   - Objects made entirely of space characters
+   - Have color and influence but no visible glyphs
+   - Could create atmospheric effects, tinted regions
+
+4. **Additional transform types**
+   - Screen, overlay, color dodge, etc.
+   - Based on need and performance impact
 
 ## Next Steps
 

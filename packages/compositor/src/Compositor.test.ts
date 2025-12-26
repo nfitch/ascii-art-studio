@@ -231,6 +231,36 @@ describe('Compositor', () => {
         });
       }).toThrow('Content must be non-empty');
     });
+
+    test('accepts content with only spaces', () => {
+      compositor.addObject('obj1', {
+        content: [[' ', ' '], [' ', ' ']],
+        position: { x: 0, y: 0 },
+      });
+
+      const obj = compositor.getObject('obj1');
+      expect(obj.content).toEqual([[' ', ' '], [' ', ' ']]);
+    });
+
+    test('renders spaces without influence as opaque', () => {
+      compositor.addObject('bg', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 0,
+      });
+
+      compositor.addObject('fg', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        color: '#00ff00',
+        layer: 1,
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.characters[0][0]).toBe(' ');
+      expect(output.colors[0][0]).toBe('#00ff00');
+    });
   });
 
   describe('removeObject', () => {
@@ -471,6 +501,46 @@ describe('Compositor', () => {
       expect(() => {
         compositor.setFlipVertical('nonexistent', true);
       }).toThrow("Object with id 'nonexistent' not found");
+    });
+  });
+
+  describe('Combined flips', () => {
+    let compositor: Compositor;
+
+    beforeEach(() => {
+      compositor = new Compositor();
+      compositor.addObject('obj1', {
+        content: [
+          ['a', 'b', 'c'],
+          ['d', 'e', 'f'],
+          ['g', 'h', 'i'],
+        ],
+        position: { x: 0, y: 0 },
+      });
+    });
+
+    test('applies both horizontal and vertical flips', () => {
+      compositor.flipHorizontal('obj1');
+      compositor.flipVertical('obj1');
+      const obj = compositor.getObject('obj1');
+      expect(obj.flipHorizontal).toBe(true);
+      expect(obj.flipVertical).toBe(true);
+      expect(obj.content).toEqual([
+        ['i', 'h', 'g'],
+        ['f', 'e', 'd'],
+        ['c', 'b', 'a'],
+      ]);
+    });
+
+    test('renders with combined flips', () => {
+      compositor.flipHorizontal('obj1');
+      compositor.flipVertical('obj1');
+      const output = compositor.render({ x: 0, y: 0, width: 3, height: 3 });
+      expect(output.characters).toEqual([
+        ['i', 'h', 'g'],
+        ['f', 'e', 'd'],
+        ['c', 'b', 'a'],
+      ]);
     });
   });
 
@@ -841,42 +911,101 @@ describe('Compositor', () => {
       compositor = new Compositor();
     });
 
-    test('applies lighten transform', () => {
-      // Add base layer (red)
+    test('applies lighten transform with linear falloff', () => {
       compositor.addObject('base', {
-        content: [['#', '#'], ['#', '#']],
+        content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      // Add upper layer with influence (will lighten base)
       compositor.addObject('upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
-        color: '#000000',
         layer: 1,
         influence: {
           radius: 1,
-          transform: {
-            type: 'lighten',
-            strength: 0.5,
-            falloff: 'linear',
-          },
+          transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
         },
       });
 
-      const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
-
-      // At (0,0), upper layer's space should let base show through with lightening
-      // The exact color transformation will be implemented, but it should be lighter than #ff0000
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
       expect(output.characters[0][0]).toBe('#');
-      expect(output.colors[0][0]).not.toBe('#ff0000'); // Should be lightened
+      expect(output.colors[0][0]).not.toBe('#ff0000');
+    });
+
+    test('applies lighten transform with quadratic falloff', () => {
+      compositor.addObject('base', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 0,
+      });
+
+      compositor.addObject('upper', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'lighten', strength: 0.5, falloff: 'quadratic' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.characters[0][0]).toBe('#');
+      expect(output.colors[0][0]).not.toBe('#ff0000');
+    });
+
+    test('applies lighten transform with exponential falloff', () => {
+      compositor.addObject('base', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 0,
+      });
+
+      compositor.addObject('upper', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'lighten', strength: 0.5, falloff: 'exponential' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.characters[0][0]).toBe('#');
+      expect(output.colors[0][0]).not.toBe('#ff0000');
+    });
+
+    test('applies lighten transform with cubic falloff', () => {
+      compositor.addObject('base', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 0,
+      });
+
+      compositor.addObject('upper', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'lighten', strength: 0.5, falloff: 'cubic' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.characters[0][0]).toBe('#');
+      expect(output.colors[0][0]).not.toBe('#ff0000');
     });
 
     test('applies darken transform', () => {
       compositor.addObject('base', {
-        content: [['#', '#'], ['#', '#']],
+        content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
@@ -885,21 +1014,14 @@ describe('Compositor', () => {
       compositor.addObject('upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
-        color: '#000000',
         layer: 1,
         influence: {
           radius: 1,
-          transform: {
-            type: 'darken',
-            strength: 0.5,
-            falloff: 'linear',
-          },
+          transform: { type: 'darken', strength: 0.5, falloff: 'linear' },
         },
       });
 
-      const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
-
-      // Should be darker than #ffffff
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
       expect(output.characters[0][0]).toBe('#');
       expect(output.colors[0][0]).not.toBe('#ffffff');
     });

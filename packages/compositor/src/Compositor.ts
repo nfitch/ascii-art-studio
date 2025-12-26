@@ -142,20 +142,13 @@ export class Compositor {
   }
 
   removeObject(id: string): void {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
-
+    const obj = this.getObjectOrThrow(id);
     this.markRegionDirty(obj.bounds);
     this.objects.delete(id);
   }
 
   moveObject(id: string, position: Position): void {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
+    const obj = this.getObjectOrThrow(id);
 
     // Mark old position dirty
     this.markRegionDirty(obj.bounds);
@@ -169,10 +162,7 @@ export class Compositor {
   }
 
   flipHorizontal(id: string): void {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
+    const obj = this.getObjectOrThrow(id);
 
     this.markRegionDirty(obj.bounds);
 
@@ -187,10 +177,7 @@ export class Compositor {
   }
 
   flipVertical(id: string): void {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
+    const obj = this.getObjectOrThrow(id);
 
     this.markRegionDirty(obj.bounds);
 
@@ -205,10 +192,7 @@ export class Compositor {
   }
 
   setFlipHorizontal(id: string, flipped: boolean): void {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
+    const obj = this.getObjectOrThrow(id);
 
     if (obj.flipHorizontal === flipped) {
       return; // No-op
@@ -218,10 +202,7 @@ export class Compositor {
   }
 
   setFlipVertical(id: string, flipped: boolean): void {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
+    const obj = this.getObjectOrThrow(id);
 
     if (obj.flipVertical === flipped) {
       return; // No-op
@@ -231,10 +212,7 @@ export class Compositor {
   }
 
   getObject(id: string): CompositorObject {
-    const obj = this.objects.get(id);
-    if (!obj) {
-      throw new Error(`Object with id '${id}' not found`);
-    }
+    const obj = this.getObjectOrThrow(id);
 
     return {
       id: obj.id,
@@ -457,6 +435,14 @@ export class Compositor {
 
   private toHex(value: number): string {
     return value.toString(16).padStart(2, '0');
+  }
+
+  private getObjectOrThrow(id: string): InternalObject {
+    const obj = this.objects.get(id);
+    if (!obj) {
+      throw new Error(`Object with id '${id}' not found`);
+    }
+    return obj;
   }
 
   private getSortedLayers(): number[] {

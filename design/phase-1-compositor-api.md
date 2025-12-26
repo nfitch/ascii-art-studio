@@ -117,11 +117,11 @@ interface CompositorObject {
 ## Constructor
 
 ```typescript
-new Compositor(initialObjects?: CompositorObject[], defaultViewport?: Viewport)
+new Compositor(initialObjects?: Partial<CompositorObject>[], defaultViewport?: Viewport)
 ```
 
 **Parameters:**
-- `initialObjects` - Optional array of objects to add at construction
+- `initialObjects` - Optional array of partial objects to add at construction. Only `id`, `content`, and `position` are required; computed fields like `bounds`, `flipHorizontal`, and `flipVertical` are generated automatically.
 - `defaultViewport` - Optional default viewport for render() calls
 
 **Behavior:**

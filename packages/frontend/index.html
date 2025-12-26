@@ -8,9 +8,31 @@
 </head>
 <body>
   <div id="app">
-    <h1>ASCII Art Studio</h1>
-    <p>Modular TypeScript libraries for creating, manipulating, and animating ASCII art</p>
+    <header>
+      <h1>ASCII Art Studio</h1>
+    </header>
+
+    <div class="container">
+      <nav id="sidebar">
+        <div class="nav-section">
+          <div class="nav-header" onclick="toggleDemos()">
+            <span class="expand-icon" id="expand-icon">[-]</span>
+            <span>Demos</span>
+          </div>
+          <div id="nav-items" class="nav-items">
+            <!-- Demo links will be inserted here -->
+          </div>
+        </div>
+      </nav>
+
+      <main id="content">
+        <div id="content-body">
+          <!-- Demo content will be inserted here -->
+        </div>
+      </main>
+    </div>
   </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

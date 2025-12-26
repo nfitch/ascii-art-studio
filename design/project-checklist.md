@@ -38,14 +38,14 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
   - [x] Object management methods (add, remove, move, flip)
   - [x] Rendering methods (render with dirty optimization)
   - [x] Initial implementation: lighten and darken only
-- [ ] Comprehensive tests against API
-  - [ ] Unit test suite
-  - [ ] Integration tests
-  - [ ] Edge case coverage
-- [ ] Implementation (TDD)
-  - [ ] Implement against tests
-  - [ ] Refine and add additional tests
-  - [ ] Verify all tests pass
+- [x] Comprehensive tests against API
+  - [x] Unit test suite (72 tests)
+  - [x] Integration tests
+  - [x] Edge case coverage
+- [x] Implementation (TDD)
+  - [x] Implement against tests
+  - [x] Refine and add additional tests
+  - [x] Verify all tests pass (72/72 passing)
 - [ ] Thoroughly document APIs
   - [ ] API reference documentation
   - [ ] Usage examples

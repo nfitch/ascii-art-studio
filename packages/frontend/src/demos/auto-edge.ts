@@ -435,13 +435,13 @@ function createHorizontalLineShapeExplicit(): string[][] {
 
 // Shape 10: Single Character (1x1)
 function createSingleCharShape(): (string | null)[][] {
-  return [[' #']].map(line =>
+  return [' #'].map(line =>
     line.split('').map(char => char === ' ' ? ' ' : char)
   );
 }
 
 function createSingleCharShapeExplicit(): string[][] {
-  return [[' #']].map(line =>
+  return [' #'].map(line =>
     line.split('').map(char => char === ' ' ? 'x' : char)
   );
 }

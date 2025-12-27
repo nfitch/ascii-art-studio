@@ -175,6 +175,21 @@ button:hover {
 }
 
 /* Inputs */
+select {
+  font-family: 'Courier New', Courier, monospace;
+  background: #2a2a2a;
+  color: #ffffff;
+  border: 2px solid #2a2a2a;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+select:hover {
+  background: #ffffff;
+  color: #2a2a2a;
+}
+
 input[type="range"] {
   width: 200px;
   vertical-align: middle;

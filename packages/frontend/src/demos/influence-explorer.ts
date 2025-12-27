@@ -281,7 +281,7 @@ function getHtml(): string {
       <div class="demo-controls">
         <div class="control-group">
           <span class="control-label">Blend Mode:</span>
-          <select onchange="influenceExplorerChangeMode(this.value)" style="margin-right: 1rem;">
+          <select onchange="influenceExplorerChangeMode(this.value)">
             <option value="lighten" ${currentMode === 'lighten' ? 'selected' : ''}>Lighten (Black & White)</option>
             <option value="multiply" ${currentMode === 'multiply' ? 'selected' : ''}>Multiply (Color)</option>
             <option value="multiply-darken" ${currentMode === 'multiply-darken' ? 'selected' : ''}>Multiply-Darken (Color)</option>

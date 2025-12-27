@@ -1507,4 +1507,425 @@ describe('Compositor', () => {
       expect(output.colors[0][0]).toBe('#000000');
     });
   });
+
+  describe('Layer Effects', () => {
+    let compositor: Compositor;
+
+    beforeEach(() => {
+      compositor = new Compositor();
+    });
+
+    describe('setLayerEffect and getLayerEffect', () => {
+      test('sets and retrieves layer effect', () => {
+        const effect = {
+          color: '#ff0000',
+          type: 'lighten' as const,
+          strength: 0.5,
+        };
+
+        compositor.setLayerEffect(1, effect);
+        const retrieved = compositor.getLayerEffect(1);
+
+        expect(retrieved).toEqual(effect);
+      });
+
+      test('returns null for layer with no effect', () => {
+        expect(compositor.getLayerEffect(5)).toBeNull();
+      });
+
+      test('removes layer effect when set to null', () => {
+        compositor.setLayerEffect(1, {
+          color: '#ff0000',
+          type: 'lighten',
+          strength: 0.5,
+        });
+
+        compositor.setLayerEffect(1, null);
+        expect(compositor.getLayerEffect(1)).toBeNull();
+      });
+
+      test('returns deep clone of layer effect', () => {
+        const effect = {
+          color: '#ff0000',
+          type: 'multiply-darken' as const,
+          strength: 0.8,
+          darkenFactor: 0.5,
+        };
+
+        compositor.setLayerEffect(1, effect);
+        const retrieved = compositor.getLayerEffect(1);
+
+        effect.strength = 1.0;
+        expect(retrieved?.strength).toBe(0.8);
+      });
+
+      test('allows multiple layer effects on different layers', () => {
+        compositor.setLayerEffect(0, {
+          color: '#ff0000',
+          type: 'lighten',
+          strength: 0.3,
+        });
+
+        compositor.setLayerEffect(2, {
+          color: '#00ff00',
+          type: 'multiply',
+          strength: 0.7,
+        });
+
+        expect(compositor.getLayerEffect(0)).toEqual({
+          color: '#ff0000',
+          type: 'lighten',
+          strength: 0.3,
+        });
+
+        expect(compositor.getLayerEffect(2)).toEqual({
+          color: '#00ff00',
+          type: 'multiply',
+          strength: 0.7,
+        });
+      });
+
+      test('overwrites existing layer effect', () => {
+        compositor.setLayerEffect(1, {
+          color: '#ff0000',
+          type: 'lighten',
+          strength: 0.5,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#00ff00',
+          type: 'darken',
+          strength: 0.8,
+        });
+
+        expect(compositor.getLayerEffect(1)).toEqual({
+          color: '#00ff00',
+          type: 'darken',
+          strength: 0.8,
+        });
+      });
+    });
+
+    describe('Layer effect validation', () => {
+      test('throws on invalid color format', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: 'red',
+            type: 'lighten',
+            strength: 0.5,
+          });
+        }).toThrow('Invalid color format: must be #RRGGBB');
+      });
+
+      test('throws on strength less than 0', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: '#ff0000',
+            type: 'lighten',
+            strength: -0.1,
+          });
+        }).toThrow('Strength must be between 0.0 and 1.0');
+      });
+
+      test('throws on strength greater than 1', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: '#ff0000',
+            type: 'lighten',
+            strength: 1.5,
+          });
+        }).toThrow('Strength must be between 0.0 and 1.0');
+      });
+
+      test('throws on darkenFactor less than 0', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: '#ff0000',
+            type: 'multiply-darken',
+            strength: 0.5,
+            darkenFactor: -0.1,
+          });
+        }).toThrow('darkenFactor must be between 0.0 and 1.0');
+      });
+
+      test('throws on darkenFactor greater than 1', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: '#ff0000',
+            type: 'multiply-darken',
+            strength: 0.5,
+            darkenFactor: 1.5,
+          });
+        }).toThrow('darkenFactor must be between 0.0 and 1.0');
+      });
+
+      test('allows strength of exactly 0', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: '#ff0000',
+            type: 'lighten',
+            strength: 0.0,
+          });
+        }).not.toThrow();
+      });
+
+      test('allows strength of exactly 1', () => {
+        expect(() => {
+          compositor.setLayerEffect(1, {
+            color: '#ff0000',
+            type: 'lighten',
+            strength: 1.0,
+          });
+        }).not.toThrow();
+      });
+    });
+
+    describe('Layer effect rendering', () => {
+      test('applies lighten effect uniformly to viewport', () => {
+        compositor.addObject('bg', {
+          content: [['#', '#'], ['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#000000',
+          layer: 0,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#ffffff',
+          type: 'lighten',
+          strength: 0.5,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // All cells should be lightened by 50% toward white
+        expect(output.colors[0][0]).toBe('#808080');
+        expect(output.colors[0][1]).toBe('#808080');
+        expect(output.colors[1][0]).toBe('#808080');
+        expect(output.colors[1][1]).toBe('#808080');
+      });
+
+      test('applies darken effect uniformly to viewport', () => {
+        compositor.addObject('bg', {
+          content: [['#', '#'], ['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#ffffff',
+          layer: 0,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#000000',
+          type: 'darken',
+          strength: 0.5,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // All cells should be darkened by 50% toward black
+        expect(output.colors[0][0]).toBe('#808080');
+        expect(output.colors[0][1]).toBe('#808080');
+        expect(output.colors[1][0]).toBe('#808080');
+        expect(output.colors[1][1]).toBe('#808080');
+      });
+
+      test('applies multiply effect uniformly to viewport', () => {
+        compositor.addObject('bg', {
+          content: [['#', '#'], ['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#ffffff',
+          layer: 0,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#ff0000',
+          type: 'multiply',
+          strength: 1.0,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // White multiplied by red at full strength should be red
+        expect(output.colors[0][0]).toBe('#ff0000');
+        expect(output.colors[0][1]).toBe('#ff0000');
+        expect(output.colors[1][0]).toBe('#ff0000');
+        expect(output.colors[1][1]).toBe('#ff0000');
+      });
+
+      test('applies multiply-darken effect uniformly to viewport', () => {
+        compositor.addObject('bg', {
+          content: [['#', '#'], ['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#ffffff',
+          layer: 0,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#ff0000',
+          type: 'multiply-darken',
+          strength: 1.0,
+          darkenFactor: 0.5,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // White multiplied by red, then darkened by 50%
+        expect(output.colors[0][0]).toBe('#800000');
+      });
+
+      test('layer effect applied before rendering layer objects', () => {
+        // Layer 0: white background
+        compositor.addObject('bg', {
+          content: [['#', '#'], ['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#ffffff',
+          layer: 0,
+        });
+
+        // Layer 1 effect: darken everything below
+        compositor.setLayerEffect(1, {
+          color: '#000000',
+          type: 'darken',
+          strength: 0.5,
+        });
+
+        // Layer 1 object: black character (should NOT be affected by layer 1 effect)
+        compositor.addObject('top', {
+          content: [['@']],
+          position: { x: 0, y: 0 },
+          color: '#000000',
+          layer: 1,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // [0,0] has layer 1 object '@' - should be black (not affected by its own layer effect)
+        expect(output.characters[0][0]).toBe('@');
+        expect(output.colors[0][0]).toBe('#000000');
+
+        // [0,1] shows layer 0 through layer 1 effect - should be darkened
+        expect(output.characters[0][1]).toBe('#');
+        expect(output.colors[0][1]).toBe('#808080');
+      });
+
+      test('multiple layer effects stack correctly', () => {
+        // Layer 0: white background
+        compositor.addObject('bg', {
+          content: [['#', '#'], ['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#ffffff',
+          layer: 0,
+        });
+
+        // Layer 1 effect: darken by 50%
+        compositor.setLayerEffect(1, {
+          color: '#000000',
+          type: 'darken',
+          strength: 0.5,
+        });
+
+        // Layer 2 effect: darken by 50% again
+        compositor.setLayerEffect(2, {
+          color: '#000000',
+          type: 'darken',
+          strength: 0.5,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // After first darken: #ffffff -> #808080
+        // After second darken: #808080 -> #404040
+        expect(output.colors[0][0]).toBe('#404040');
+      });
+
+      test('layer effect affects empty viewport cells', () => {
+        // No objects, just a layer effect
+        compositor.setLayerEffect(0, {
+          color: '#ff0000',
+          type: 'lighten',
+          strength: 1.0,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // Empty cells default to black, then lightened toward red
+        expect(output.colors[0][0]).toBe('#ff0000');
+        expect(output.colors[0][1]).toBe('#ff0000');
+      });
+
+      test('layer effect with strength 0 has no effect', () => {
+        compositor.addObject('bg', {
+          content: [['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#808080',
+          layer: 0,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#ffffff',
+          type: 'lighten',
+          strength: 0.0,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // Original color unchanged
+        expect(output.colors[0][0]).toBe('#808080');
+      });
+
+      test('layer effect interacts with object influence', () => {
+        // Layer 0: black character with white lighten influence
+        compositor.addObject('obj', {
+          content: [['#']],
+          position: { x: 0, y: 0 },
+          color: '#000000',
+          layer: 0,
+          influence: {
+            radius: 2,  // Radius 2 so position [0,1] has 50% influence with linear falloff
+            transform: { type: 'lighten', strength: 1.0, falloff: 'linear' }
+          }
+        });
+
+        // Layer 1: multiply effect (red tint)
+        compositor.setLayerEffect(1, {
+          color: '#ff0000',
+          type: 'multiply',
+          strength: 1.0,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+        // [0,0] is black, layer effect multiplies: black * red = black
+        expect(output.colors[0][0]).toBe('#000000');
+
+        // [0,1] is influenced to be lighter (50% with linear falloff at distance 1, radius 2)
+        // then multiplied by red - should have some red tint
+        const color = output.colors[0][1];
+        expect(color).not.toBe('#000000');
+        // Red channel should be present
+        const r = parseInt(color.slice(1, 3), 16);
+        expect(r).toBeGreaterThan(0);
+      });
+
+      test('removing layer effect removes its rendering effect', () => {
+        compositor.addObject('bg', {
+          content: [['#']],
+          position: { x: 0, y: 0 },
+          color: '#000000',
+          layer: 0,
+        });
+
+        compositor.setLayerEffect(1, {
+          color: '#ffffff',
+          type: 'lighten',
+          strength: 1.0,
+        });
+
+        let output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+        expect(output.colors[0][0]).toBe('#ffffff');
+
+        compositor.setLayerEffect(1, null);
+        output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+        expect(output.colors[0][0]).toBe('#000000');
+      });
+    });
+  });
 });

@@ -36,6 +36,22 @@ interface Influence {
   };
 }
 
+/**
+ * Uniform color effect applied to an entire layer.
+ * Applied to the whole viewport before rendering objects on the layer.
+ * Like a colored filter or Photoshop adjustment layer.
+ */
+export interface LayerEffect {
+  /** Color of the effect (hex #RRGGBB) */
+  color: string;
+  /** Transform type */
+  type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
+  /** Effect strength (0.0 to 1.0) */
+  strength: number;
+  /** Darken factor for multiply-darken (0.0 to 1.0, default 0.8) */
+  darkenFactor?: number;
+}
+
 /** Axis-aligned bounding box */
 interface Bounds {
   minX: number;
@@ -149,6 +165,9 @@ interface InternalObject extends CompositorObject {
 export class Compositor {
   /** Scene objects stored by ID */
   private objects: Map<string, InternalObject> = new Map();
+
+  /** Layer effects stored by layer number */
+  private layerEffects: Map<number, LayerEffect> = new Map();
 
   /** Default viewport for render() calls */
   private defaultViewport?: Viewport;
@@ -465,6 +484,84 @@ export class Compositor {
   }
 
   /**
+   * Set a uniform color effect for a layer.
+   * The effect is applied to the entire viewport BEFORE rendering objects on this layer.
+   * This creates a "filter layer" effect that tints everything below uniformly.
+   *
+   * @param layer - Layer number
+   * @param effect - Layer effect configuration, or null to remove
+   * @throws {Error} If color is not valid #RRGGBB format
+   * @throws {Error} If strength is not between 0.0 and 1.0
+   * @throws {Error} If darkenFactor is provided and not between 0.0 and 1.0
+   *
+   * @example
+   * // Blue fog layer
+   * compositor.setLayerEffect(3, {
+   *   color: '#4444ff',
+   *   type: 'multiply',
+   *   strength: 0.5
+   * });
+   *
+   * // Remove effect
+   * compositor.setLayerEffect(3, null);
+   */
+  setLayerEffect(layer: number, effect: LayerEffect | null): void {
+    if (effect === null) {
+      this.layerEffects.delete(layer);
+      // Mark entire viewport dirty since layer effect affects everything
+      this.dirtyRegions.add('layer-effect');
+      return;
+    }
+
+    // Validate color format
+    if (!this.isValidColor(effect.color)) {
+      throw new Error('Invalid color format: must be #RRGGBB');
+    }
+
+    // Validate strength
+    if (effect.strength < 0 || effect.strength > 1) {
+      throw new Error('Strength must be between 0.0 and 1.0');
+    }
+
+    // Validate darkenFactor if present
+    if (effect.darkenFactor !== undefined && (effect.darkenFactor < 0 || effect.darkenFactor > 1)) {
+      throw new Error('darkenFactor must be between 0.0 and 1.0');
+    }
+
+    // Store deep clone to prevent external mutations
+    this.layerEffects.set(layer, {
+      color: effect.color,
+      type: effect.type,
+      strength: effect.strength,
+      ...(effect.darkenFactor !== undefined && { darkenFactor: effect.darkenFactor }),
+    });
+
+    // Mark entire viewport dirty
+    this.dirtyRegions.add('layer-effect');
+  }
+
+  /**
+   * Get the current effect for a layer.
+   *
+   * @param layer - Layer number
+   * @returns Deep clone of layer effect, or null if no effect is set
+   */
+  getLayerEffect(layer: number): LayerEffect | null {
+    const effect = this.layerEffects.get(layer);
+    if (!effect) {
+      return null;
+    }
+
+    // Return deep clone
+    return {
+      color: effect.color,
+      type: effect.type,
+      strength: effect.strength,
+      ...(effect.darkenFactor !== undefined && { darkenFactor: effect.darkenFactor }),
+    };
+  }
+
+  /**
    * Returns the minimal bounding box containing all objects (including influence).
    *
    * If no objects exist, returns a zero-sized box at origin.
@@ -602,10 +699,35 @@ export class Compositor {
     let accumulatedTransparency = 0;
     let accumulatedMultiplyColor = '#ffffff'; // Start with white for multiply
     let hasMultiply = false;
+    // Collect layer effects to apply at the end (in order encountered)
+    const layerEffectsToApply: Array<{ color: string; strength: number }> = [];
 
     // Traverse layers top to bottom (reverse order of sorted array)
     for (let i = layers.length - 1; i >= 0; i--) {
       const layer = layers[i];
+
+      // Collect layer effect BEFORE rendering objects on this layer
+      const layerEffect = this.layerEffects.get(layer);
+      if (layerEffect && layerEffect.strength > 0) {
+        // Layer effects for lighten/darken are applied to the final color
+        if (layerEffect.type === 'lighten' || layerEffect.type === 'darken') {
+          // Collect for later application
+          layerEffectsToApply.push({
+            color: layerEffect.color,
+            strength: layerEffect.strength
+          });
+        } else if (layerEffect.type === 'multiply' || layerEffect.type === 'multiply-darken') {
+          accumulatedMultiplyColor = this.accumulateMultiply(
+            accumulatedMultiplyColor,
+            layerEffect.color,
+            layerEffect.strength,
+            layerEffect.type,
+            layerEffect.darkenFactor
+          );
+          hasMultiply = true;
+        }
+      }
+
       const objectsOnLayer = this.getObjectsOnLayer(layer);
 
       // First-added-wins for same-layer overlaps
@@ -657,6 +779,10 @@ export class Compositor {
                 if (hasMultiply) {
                   transformedColor = this.applyMultiply(transformedColor, accumulatedMultiplyColor);
                 }
+                // Apply all collected layer effects in order
+                for (const effect of layerEffectsToApply) {
+                  transformedColor = this.interpolateColor(transformedColor, effect.color, effect.strength);
+                }
                 return { char: cell, color: transformedColor };
               } else if (cell === ' ' && obj.influence) {
                 // Glass pane effect: space with influence acts as transparent
@@ -676,6 +802,10 @@ export class Compositor {
                 let transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
                 if (hasMultiply) {
                   transformedColor = this.applyMultiply(transformedColor, accumulatedMultiplyColor);
+                }
+                // Apply all collected layer effects in order
+                for (const effect of layerEffectsToApply) {
+                  transformedColor = this.interpolateColor(transformedColor, effect.color, effect.strength);
                 }
                 return { char: cell, color: transformedColor };
               }
@@ -704,7 +834,17 @@ export class Compositor {
     }
 
     // No content found at this position
-    return { char: ' ', color: '#000000' };
+    // Apply accumulated transforms to default black color
+    let finalColor = '#000000';
+    finalColor = this.applyTransparency(finalColor, accumulatedTransparency);
+    if (hasMultiply) {
+      finalColor = this.applyMultiply(finalColor, accumulatedMultiplyColor);
+    }
+    // Apply all collected layer effects in order
+    for (const effect of layerEffectsToApply) {
+      finalColor = this.interpolateColor(finalColor, effect.color, effect.strength);
+    }
+    return { char: ' ', color: finalColor };
   }
 
   /**
@@ -831,6 +971,36 @@ export class Compositor {
   }
 
   /**
+   * Interpolates between two colors by a given strength.
+   * Used for layer effects that blend toward a target color.
+   *
+   * @param baseColor - Starting color in #RRGGBB format
+   * @param targetColor - Target color to interpolate toward
+   * @param strength - Interpolation strength (0.0 to 1.0+)
+   * @returns Interpolated color in #RRGGBB format
+   */
+  private interpolateColor(baseColor: string, targetColor: string, strength: number): string {
+    // Clamp strength to [0, 1]
+    const t = Math.max(0, Math.min(1, strength));
+
+    // Parse colors
+    const r1 = parseInt(baseColor.slice(1, 3), 16);
+    const g1 = parseInt(baseColor.slice(3, 5), 16);
+    const b1 = parseInt(baseColor.slice(5, 7), 16);
+
+    const r2 = parseInt(targetColor.slice(1, 3), 16);
+    const g2 = parseInt(targetColor.slice(3, 5), 16);
+    const b2 = parseInt(targetColor.slice(5, 7), 16);
+
+    // Linear interpolation
+    const r = Math.round(r1 + (r2 - r1) * t);
+    const g = Math.round(g1 + (g2 - g1) * t);
+    const b = Math.round(b1 + (b2 - b1) * t);
+
+    return `#${this.toHex(r)}${this.toHex(g)}${this.toHex(b)}`;
+  }
+
+  /**
    * Gets an object by ID or throws if not found.
    *
    * Helper method to reduce duplicate error handling code.
@@ -848,8 +1018,13 @@ export class Compositor {
    */
   private getSortedLayers(): number[] {
     const layers = new Set<number>();
+    // Include layers with objects
     for (const obj of this.objects.values()) {
       layers.add(obj.layer);
+    }
+    // Include layers with effects
+    for (const layer of this.layerEffects.keys()) {
+      layers.add(layer);
     }
     return Array.from(layers).sort((a, b) => a - b);
   }

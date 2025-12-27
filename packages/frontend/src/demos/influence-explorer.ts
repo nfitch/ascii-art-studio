@@ -7,6 +7,7 @@ import { Compositor } from '../../../compositor/src/Compositor';
 
 let currentFrame = 0;
 const totalFrames = 19;
+let currentMode: 'lighten' | 'multiply' | 'multiply-darken' = 'lighten';
 
 // Pre-generate all frames for all variations
 const frames: {
@@ -254,16 +255,38 @@ function getHtml(): string {
     'Frame 19: Curtain Exits',
   ];
 
+  // Get the appropriate frames for the current mode
+  const radius2Frames = currentMode === 'lighten' ? frames.radius2 :
+                        currentMode === 'multiply' ? frames.multiplyRadius2 :
+                        frames.multiplyDarkenRadius2;
+  const radius4Frames = currentMode === 'lighten' ? frames.radius4 :
+                        currentMode === 'multiply' ? frames.multiplyRadius4 :
+                        frames.multiplyDarkenRadius4;
+
+  const modeDescriptions = {
+    'lighten': 'Lighten (Black & White)',
+    'multiply': 'Multiply (Red / Blue / Green)',
+    'multiply-darken': 'Multiply-Darken (Red / Blue / Green, factor=0.8)'
+  };
+
   return `
     <div class="demo-container">
       <h2>Influence Explorer</h2>
 
       <div class="demo-description">
         Watch how different influence types affect nearby space as objects approach.
-        Each row shows a different blend mode. Each column shows a different radius.
+        Select a blend mode to see how it affects the interaction between objects.
       </div>
 
       <div class="demo-controls">
+        <div class="control-group">
+          <span class="control-label">Blend Mode:</span>
+          <select onchange="influenceExplorerChangeMode(this.value)" style="margin-right: 1rem;">
+            <option value="lighten" ${currentMode === 'lighten' ? 'selected' : ''}>Lighten (Black & White)</option>
+            <option value="multiply" ${currentMode === 'multiply' ? 'selected' : ''}>Multiply (Color)</option>
+            <option value="multiply-darken" ${currentMode === 'multiply-darken' ? 'selected' : ''}>Multiply-Darken (Color)</option>
+          </select>
+        </div>
         <div class="control-group">
           <button onclick="influenceExplorerPrevFrame()" ${currentFrame === 0 ? 'disabled' : ''}>Previous Frame</button>
           <button onclick="influenceExplorerNextFrame()" ${currentFrame === totalFrames - 1 ? 'disabled' : ''}>Next Frame</button>
@@ -276,43 +299,15 @@ function getHtml(): string {
       </div>
 
       <div style="margin-bottom: 2rem;">
-        <h3 style="margin-bottom: 1rem;">Row 1: Lighten</h3>
+        <h3 style="margin-bottom: 1rem;">${modeDescriptions[currentMode]}</h3>
         <div style="display: flex; gap: 2rem;">
           <div style="flex: 1;">
             <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Radius 2</p>
-            <div class="demo-output">${renderOutput(frames.radius2[currentFrame])}</div>
+            <div class="demo-output">${renderOutput(radius2Frames[currentFrame])}</div>
           </div>
           <div style="flex: 1;">
             <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Radius 4</p>
-            <div class="demo-output">${renderOutput(frames.radius4[currentFrame])}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 2rem;">
-        <h3 style="margin-bottom: 1rem;">Row 2: Multiply (Red / Blue / Green)</h3>
-        <div style="display: flex; gap: 2rem;">
-          <div style="flex: 1;">
-            <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Radius 2</p>
-            <div class="demo-output">${renderOutput(frames.multiplyRadius2[currentFrame])}</div>
-          </div>
-          <div style="flex: 1;">
-            <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Radius 4</p>
-            <div class="demo-output">${renderOutput(frames.multiplyRadius4[currentFrame])}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 2rem;">
-        <h3 style="margin-bottom: 1rem;">Row 3: Multiply-Darken (Red / Blue / Green, factor=0.8)</h3>
-        <div style="display: flex; gap: 2rem;">
-          <div style="flex: 1;">
-            <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Radius 2</p>
-            <div class="demo-output">${renderOutput(frames.multiplyDarkenRadius2[currentFrame])}</div>
-          </div>
-          <div style="flex: 1;">
-            <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Radius 4</p>
-            <div class="demo-output">${renderOutput(frames.multiplyDarkenRadius4[currentFrame])}</div>
+            <div class="demo-output">${renderOutput(radius4Frames[currentFrame])}</div>
           </div>
         </div>
       </div>
@@ -350,6 +345,11 @@ function renderOutput(output: { characters: string[][]; colors: string[][] }): s
 
 (window as any).influenceExplorerReset = () => {
   currentFrame = 0;
+  updateDisplay();
+};
+
+(window as any).influenceExplorerChangeMode = (mode: 'lighten' | 'multiply' | 'multiply-darken') => {
+  currentMode = mode;
   updateDisplay();
 };
 

@@ -14,25 +14,25 @@ function generateScene(
 ): { characters: string[][]; colors: string[][] } {
   const compositor = new Compositor([], { x: 0, y: 0, width: 40, height: 15 });
 
-  // Background pattern (layer 0)
+  // Background pattern (layer 0) - white objects to show blue tint
   compositor.addObject('bg1', {
     content: ['#####', '#####', '#####', '#####', '#####'],
     position: { x: 5, y: 3 },
-    color: '#000000',
+    color: '#ffffff',
     layer: 0,
   });
 
   compositor.addObject('bg2', {
     content: ['=====', '=====', '=====', '=====', '====='],
     position: { x: 15, y: 7 },
-    color: '#000000',
+    color: '#ffffff',
     layer: 0,
   });
 
   compositor.addObject('bg3', {
     content: ['*****', '*****', '*****', '*****', '*****'],
     position: { x: 28, y: 4 },
-    color: '#000000',
+    color: '#ffffff',
     layer: 0,
   });
 

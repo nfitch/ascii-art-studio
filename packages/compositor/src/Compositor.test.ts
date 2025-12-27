@@ -1326,4 +1326,185 @@ describe('Compositor', () => {
       expect(output2.characters[0][0]).toBe(' ');
     });
   });
+
+  describe('Multiply and Multiply-Darken Blend Modes', () => {
+    let compositor: Compositor;
+
+    beforeEach(() => {
+      compositor = new Compositor();
+    });
+
+    test('multiply blend mode combines colors', () => {
+      // White object on bottom layer
+      compositor.addObject('bottom', {
+        content: [['*']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+
+      // Red glass pane (spaces) on top layer with multiply influence
+      compositor.addObject('top', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'multiply', strength: 1.0, falloff: 'linear' }
+        }
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+
+      // The white character should be tinted red by multiply influence
+      // White (#ffffff) multiplied by red (#ff0000) should give red (#ff0000)
+      expect(output.characters[0][0]).toBe('*');
+      expect(output.colors[0][0]).toBe('#ff0000');
+    });
+
+    test('multiply-darken is darker than multiply', () => {
+      // Setup two identical scenes, one with multiply, one with multiply-darken
+      const comp1 = new Compositor();
+      comp1.addObject('bottom', {
+        content: [['*']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+      comp1.addObject('top', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'multiply', strength: 1.0, falloff: 'linear' }
+        }
+      });
+
+      const comp2 = new Compositor();
+      comp2.addObject('bottom', {
+        content: [['*']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+      comp2.addObject('top', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'multiply-darken', strength: 1.0, falloff: 'linear', darkenFactor: 0.5 }
+        }
+      });
+
+      const output1 = comp1.render({ x: 0, y: 0, width: 1, height: 1 });
+      const output2 = comp2.render({ x: 0, y: 0, width: 1, height: 1 });
+
+      // Both should have the same character
+      expect(output1.characters[0][0]).toBe('*');
+      expect(output2.characters[0][0]).toBe('*');
+
+      // Colors should be different - multiply-darken should be darker
+      expect(output1.colors[0][0]).not.toBe(output2.colors[0][0]);
+
+      // Parse colors and verify multiply-darken is darker
+      const color1 = output1.colors[0][0];
+      const color2 = output2.colors[0][0];
+
+      const r1 = parseInt(color1.slice(1, 3), 16);
+      const g1 = parseInt(color1.slice(3, 5), 16);
+      const b1 = parseInt(color1.slice(5, 7), 16);
+
+      const r2 = parseInt(color2.slice(1, 3), 16);
+      const g2 = parseInt(color2.slice(3, 5), 16);
+      const b2 = parseInt(color2.slice(5, 7), 16);
+
+      // Multiply-darken should have lower RGB values (darker)
+      expect(r2).toBeLessThanOrEqual(r1);
+      expect(g2).toBeLessThanOrEqual(g1);
+      expect(b2).toBeLessThanOrEqual(b1);
+    });
+
+    test('multiply-darken respects darkenFactor parameter', () => {
+      const comp1 = new Compositor();
+      comp1.addObject('bottom', {
+        content: [['*']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+      comp1.addObject('top', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'multiply-darken', strength: 1.0, falloff: 'linear', darkenFactor: 0.8 }
+        }
+      });
+
+      const comp2 = new Compositor();
+      comp2.addObject('bottom', {
+        content: [['*']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+      comp2.addObject('top', {
+        content: [[' ']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'multiply-darken', strength: 1.0, falloff: 'linear', darkenFactor: 0.5 }
+        }
+      });
+
+      const output1 = comp1.render({ x: 0, y: 0, width: 1, height: 1 });
+      const output2 = comp2.render({ x: 0, y: 0, width: 1, height: 1 });
+
+      // Different darkenFactors should produce different colors
+      expect(output1.colors[0][0]).not.toBe(output2.colors[0][0]);
+
+      // Lower darkenFactor (0.5) should be darker than higher (0.8)
+      const r1 = parseInt(output1.colors[0][0].slice(1, 3), 16);
+      const r2 = parseInt(output2.colors[0][0].slice(1, 3), 16);
+      expect(r2).toBeLessThan(r1);
+    });
+
+    test('multiply with glass pane effect', () => {
+      // Object beneath glass
+      compositor.addObject('bg', {
+        content: [['#', '#']],
+        position: { x: 0, y: 0 },
+        color: '#0000ff',
+        layer: 0,
+      });
+
+      // Glass pane (spaces with multiply influence)
+      compositor.addObject('glass', {
+        content: [[' ', ' '], [' ', ' ']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          transform: { type: 'multiply', strength: 1.0, falloff: 'linear' }
+        }
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+      // Background should be visible through glass with multiply effect
+      expect(output.characters[0][0]).toBe('#');
+      // Blue multiplied by red should give black
+      expect(output.colors[0][0]).toBe('#000000');
+    });
+  });
 });

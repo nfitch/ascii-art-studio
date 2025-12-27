@@ -64,7 +64,7 @@ function generateFrames() {
   frames.radius2 = positions.map((pos) => {
     const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
     compositor.addObject('bottom', {
-      content: ['=====', '=====', '=====', '=====', '=====', '====='],
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
       position: pos.bottom,
       color: '#000000',
       layer: 0,
@@ -72,7 +72,7 @@ function generateFrames() {
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
-        content: Array(12).fill('###################################'),
+        content: Array(12).fill('███████████████████████████████████'),
         position: pos.curtain,
         color: '#000000',
         layer: 1,
@@ -80,7 +80,7 @@ function generateFrames() {
       });
     }
     compositor.addObject('top', {
-      content: ['*****', '*****', '*****', '*****', '*****', '*****'],
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
       position: pos.top,
       color: '#000000',
       layer: 2,
@@ -92,7 +92,7 @@ function generateFrames() {
   frames.radius4 = positions.map((pos) => {
     const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
     compositor.addObject('bottom', {
-      content: ['=====', '=====', '=====', '=====', '=====', '====='],
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
       position: pos.bottom,
       color: '#000000',
       layer: 0,
@@ -100,7 +100,7 @@ function generateFrames() {
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
-        content: Array(12).fill('###################################'),
+        content: Array(12).fill('███████████████████████████████████'),
         position: pos.curtain,
         color: '#000000',
         layer: 1,
@@ -108,7 +108,7 @@ function generateFrames() {
       });
     }
     compositor.addObject('top', {
-      content: ['*****', '*****', '*****', '*****', '*****', '*****'],
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
       position: pos.top,
       color: '#000000',
       layer: 2,
@@ -121,7 +121,7 @@ function generateFrames() {
   frames.multiplyRadius2 = positions.map((pos) => {
     const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
     compositor.addObject('bottom', {
-      content: ['=====', '=====', '=====', '=====', '=====', '====='],
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
       position: pos.bottom,
       color: '#8888ff',
       layer: 0,
@@ -129,7 +129,7 @@ function generateFrames() {
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
-        content: Array(12).fill('###################################'),
+        content: Array(12).fill('███████████████████████████████████'),
         position: pos.curtain,
         color: '#88ff88',
         layer: 1,
@@ -137,7 +137,7 @@ function generateFrames() {
       });
     }
     compositor.addObject('top', {
-      content: ['*****', '*****', '*****', '*****', '*****', '*****'],
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
       position: pos.top,
       color: '#ff8888',
       layer: 2,
@@ -149,7 +149,7 @@ function generateFrames() {
   frames.multiplyRadius4 = positions.map((pos) => {
     const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
     compositor.addObject('bottom', {
-      content: ['=====', '=====', '=====', '=====', '=====', '====='],
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
       position: pos.bottom,
       color: '#8888ff',
       layer: 0,
@@ -157,7 +157,7 @@ function generateFrames() {
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
-        content: Array(12).fill('###################################'),
+        content: Array(12).fill('███████████████████████████████████'),
         position: pos.curtain,
         color: '#88ff88',
         layer: 1,
@@ -165,7 +165,7 @@ function generateFrames() {
       });
     }
     compositor.addObject('top', {
-      content: ['*****', '*****', '*****', '*****', '*****', '*****'],
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
       position: pos.top,
       color: '#ff8888',
       layer: 2,
@@ -178,7 +178,7 @@ function generateFrames() {
   frames.multiplyDarkenRadius2 = positions.map((pos) => {
     const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
     compositor.addObject('bottom', {
-      content: ['=====', '=====', '=====', '=====', '=====', '====='],
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
       position: pos.bottom,
       color: '#8888ff',
       layer: 0,
@@ -186,7 +186,7 @@ function generateFrames() {
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
-        content: Array(12).fill('###################################'),
+        content: Array(12).fill('███████████████████████████████████'),
         position: pos.curtain,
         color: '#88ff88',
         layer: 1,
@@ -194,7 +194,7 @@ function generateFrames() {
       });
     }
     compositor.addObject('top', {
-      content: ['*****', '*****', '*****', '*****', '*****', '*****'],
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
       position: pos.top,
       color: '#ff8888',
       layer: 2,
@@ -206,7 +206,7 @@ function generateFrames() {
   frames.multiplyDarkenRadius4 = positions.map((pos) => {
     const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
     compositor.addObject('bottom', {
-      content: ['=====', '=====', '=====', '=====', '=====', '====='],
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
       position: pos.bottom,
       color: '#8888ff',
       layer: 0,
@@ -214,7 +214,7 @@ function generateFrames() {
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
-        content: Array(12).fill('###################################'),
+        content: Array(12).fill('███████████████████████████████████'),
         position: pos.curtain,
         color: '#88ff88',
         layer: 1,
@@ -222,7 +222,7 @@ function generateFrames() {
       });
     }
     compositor.addObject('top', {
-      content: ['*****', '*****', '*****', '*****', '*****', '*****'],
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
       position: pos.top,
       color: '#ff8888',
       layer: 2,

@@ -1,6 +1,6 @@
 /**
  * Auto-Edge Detection Demo
- * Demonstrates flood fill edge detection with hollow shapes
+ * Demonstrates flood fill edge detection with various shapes
  */
 
 import { Compositor } from '../../../compositor/src/Compositor';
@@ -9,9 +9,8 @@ export function renderAutoEdgeDemo(): string {
   return getHtml();
 }
 
+// Shape 1: Ring
 function createRingShape(): (string | null)[][] {
-  // Create a hollow ring - outer ring of '#', inner hole of spaces
-  // autoDetectEdges will convert outer spaces to nulls via flood fill
   const size = 20;
   const outerRadius = 10;
   const innerRadius = 5;
@@ -28,7 +27,7 @@ function createRingShape(): (string | null)[][] {
       if (dist <= outerRadius && dist >= innerRadius) {
         row.push('#');
       } else {
-        row.push(' '); // Use spaces, not nulls
+        row.push(' ');
       }
     }
     content.push(row);
@@ -38,7 +37,6 @@ function createRingShape(): (string | null)[][] {
 }
 
 function createRingShapeExplicit(): string[][] {
-  // Same ring but with 'x' showing spaces explicitly
   const size = 20;
   const outerRadius = 10;
   const innerRadius = 5;
@@ -55,7 +53,7 @@ function createRingShapeExplicit(): string[][] {
       if (dist <= outerRadius && dist >= innerRadius) {
         row.push('#');
       } else {
-        row.push('x'); // Show spaces as 'x'
+        row.push('x');
       }
     }
     content.push(row);
@@ -64,9 +62,327 @@ function createRingShapeExplicit(): string[][] {
   return content;
 }
 
+// Shape 2: Tiger Face
+function createTigerShape(): (string | null)[][] {
+  const lines = [
+    '  ##       ##  ',
+    ' ####     #### ',
+    ' ####     #### ',
+    '  ########### ',
+    ' ############# ',
+    '## ## ### ## ##',
+    '## ##  #  ## ##',
+    '###   ###   ###',
+    ' ###  ###  ### ',
+    '  #### # ####  ',
+    '   ########    ',
+    '    ######     ',
+    '   ## ## ##    ',
+    '  ##  ##  ##   ',
+    ' ##   ##   ##  ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(15, ' ').split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createTigerShapeExplicit(): string[][] {
+  const lines = [
+    '  ##       ##  ',
+    ' ####     #### ',
+    ' ####     #### ',
+    '  ########### ',
+    ' ############# ',
+    '## ## ### ## ##',
+    '## ##  #  ## ##',
+    '###   ###   ###',
+    ' ###  ###  ### ',
+    '  #### # ####  ',
+    '   ########    ',
+    '    ######     ',
+    '   ## ## ##    ',
+    '  ##  ##  ##   ',
+    ' ##   ##   ##  ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(15, ' ').split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
+// Shape 3: House
+function createHouseShape(): (string | null)[][] {
+  const lines = [
+    '        ##      ',
+    '       ####     ',
+    '      ##  ##    ',
+    '     ##    ##   ',
+    '   ############ ',
+    '   ##        ## ',
+    '   ##  ####  ## ',
+    '   ##  ####  ## ',
+    '   ##  ####  ## ',
+    '   ##        ## ',
+    '   ##   ##   ## ',
+    '   ##   ##   ## ',
+    '   ##   ##   ## ',
+    '   ############ ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(16, ' ').split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createHouseShapeExplicit(): string[][] {
+  const lines = [
+    '        ##      ',
+    '       ####     ',
+    '      ##  ##    ',
+    '     ##    ##   ',
+    '   ############ ',
+    '   ##        ## ',
+    '   ##  ####  ## ',
+    '   ##  ####  ## ',
+    '   ##  ####  ## ',
+    '   ##        ## ',
+    '   ##   ##   ## ',
+    '   ##   ##   ## ',
+    '   ##   ##   ## ',
+    '   ############ ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(16, ' ').split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
+// Shape 4: Fish
+function createFishShape(): (string | null)[][] {
+  const lines = [
+    '              ',
+    '    #####     ',
+    '  ####   ##   ',
+    ' ##  #    ### ',
+    '##       #### ',
+    '##       #### ',
+    ' ##  #    ### ',
+    '  ####   ##   ',
+    '    #####     ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(14, ' ').split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createFishShapeExplicit(): string[][] {
+  const lines = [
+    '              ',
+    '    #####     ',
+    '  ####   ##   ',
+    ' ##  #    ### ',
+    '##       #### ',
+    '##       #### ',
+    ' ##  #    ### ',
+    '  ####   ##   ',
+    '    #####     ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(14, ' ').split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
+// Shape 5: Hollow Square
+function createHollowSquareShape(): (string | null)[][] {
+  const lines = [
+    '############',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '############',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(12, ' ').split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createHollowSquareShapeExplicit(): string[][] {
+  const lines = [
+    '############',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '##        ##',
+    '############',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(12, ' ').split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
+// Shape 6: Smiley Face
+function createSmileyShape(): (string | null)[][] {
+  const size = 16;
+  const radius = 8;
+  const center = 7.5;
+  const content: (string | null)[][] = [];
+
+  for (let y = 0; y < size; y++) {
+    const row: (string | null)[] = [];
+    for (let x = 0; x < size; x++) {
+      const dx = x - center;
+      const dy = y - center;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Circle outline
+      if (dist >= radius - 0.7 && dist <= radius + 0.7) {
+        row.push('#');
+      }
+      // Left eye
+      else if (x >= 4 && x <= 6 && y >= 5 && y <= 6) {
+        row.push('#');
+      }
+      // Right eye
+      else if (x >= 9 && x <= 11 && y >= 5 && y <= 6) {
+        row.push('#');
+      }
+      // Smile (arc)
+      else if (y >= 10 && y <= 11) {
+        const smileDx = x - center;
+        const smileDy = y - 10;
+        const smileDist = Math.sqrt(smileDx * smileDx + smileDy * smileDy);
+        if (smileDist >= 3 && smileDist <= 5 && y === 10) {
+          row.push('#');
+        } else {
+          row.push(' ');
+        }
+      }
+      else {
+        row.push(' ');
+      }
+    }
+    content.push(row);
+  }
+
+  return content;
+}
+
+function createSmileyShapeExplicit(): string[][] {
+  const size = 16;
+  const radius = 8;
+  const center = 7.5;
+  const content: string[][] = [];
+
+  for (let y = 0; y < size; y++) {
+    const row: string[] = [];
+    for (let x = 0; x < size; x++) {
+      const dx = x - center;
+      const dy = y - center;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Circle outline
+      if (dist >= radius - 0.7 && dist <= radius + 0.7) {
+        row.push('#');
+      }
+      // Left eye
+      else if (x >= 4 && x <= 6 && y >= 5 && y <= 6) {
+        row.push('#');
+      }
+      // Right eye
+      else if (x >= 9 && x <= 11 && y >= 5 && y <= 6) {
+        row.push('#');
+      }
+      // Smile (arc)
+      else if (y >= 10 && y <= 11) {
+        const smileDx = x - center;
+        const smileDy = y - 10;
+        const smileDist = Math.sqrt(smileDx * smileDx + smileDy * smileDy);
+        if (smileDist >= 3 && smileDist <= 5 && y === 10) {
+          row.push('#');
+        } else {
+          row.push('x');
+        }
+      }
+      else {
+        row.push('x');
+      }
+    }
+    content.push(row);
+  }
+
+  return content;
+}
+
+// Shape 7: Tree
+function createTreeShape(): (string | null)[][] {
+  const lines = [
+    '      ###      ',
+    '     #####     ',
+    '    #######    ',
+    '   #########   ',
+    '  ###########  ',
+    '    #######    ',
+    '   #########   ',
+    '  ###########  ',
+    ' ############# ',
+    '   #########   ',
+    '  ###########  ',
+    ' ############# ',
+    '###############',
+    '      ###      ',
+    '      ###      ',
+    '      ###      ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(15, ' ').split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createTreeShapeExplicit(): string[][] {
+  const lines = [
+    '      ###      ',
+    '     #####     ',
+    '    #######    ',
+    '   #########   ',
+    '  ###########  ',
+    '    #######    ',
+    '   #########   ',
+    '  ###########  ',
+    ' ############# ',
+    '   #########   ',
+    '  ###########  ',
+    ' ############# ',
+    '###############',
+    '      ###      ',
+    '      ###      ',
+    '      ###      ',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(15, ' ').split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
 function addBackground(compositor: Compositor) {
   const pattern: string[] = [];
-  for (let y = 0; y < 26; y++) {
+  for (let y = 0; y < 23; y++) {
     pattern.push('.'.repeat(40));
   }
 
@@ -78,26 +394,78 @@ function addBackground(compositor: Compositor) {
   });
 }
 
-function getHtml(): string {
-  // Create three compositors for three panes
-  const comp1 = new Compositor([], { x: 0, y: 0, width: 40, height: 26 });
-  const comp2 = new Compositor([], { x: 0, y: 0, width: 40, height: 26 });
-  const comp3 = new Compositor([], { x: 0, y: 0, width: 40, height: 26 });
+interface ShapeDefinition {
+  name: string;
+  createShape: () => (string | null)[][];
+  createShapeExplicit: () => string[][];
+  position: { x: number; y: number };
+}
 
-  // Pane 1: Explicit spaces (shown as 'x')
-  addBackground(comp1);
-  comp1.addObject('ring', {
-    content: createRingShapeExplicit(),
+const shapes: ShapeDefinition[] = [
+  {
+    name: 'Ring',
+    createShape: createRingShape,
+    createShapeExplicit: createRingShapeExplicit,
     position: { x: 10, y: 3 },
+  },
+  {
+    name: 'Tiger Face',
+    createShape: createTigerShape,
+    createShapeExplicit: createTigerShapeExplicit,
+    position: { x: 12, y: 3 },
+  },
+  {
+    name: 'House',
+    createShape: createHouseShape,
+    createShapeExplicit: createHouseShapeExplicit,
+    position: { x: 12, y: 3 },
+  },
+  {
+    name: 'Fish',
+    createShape: createFishShape,
+    createShapeExplicit: createFishShapeExplicit,
+    position: { x: 13, y: 8 },
+  },
+  {
+    name: 'Hollow Square',
+    createShape: createHollowSquareShape,
+    createShapeExplicit: createHollowSquareShapeExplicit,
+    position: { x: 14, y: 7 },
+  },
+  {
+    name: 'Smiley Face',
+    createShape: createSmileyShape,
+    createShapeExplicit: createSmileyShapeExplicit,
+    position: { x: 12, y: 5 },
+  },
+  {
+    name: 'Tree',
+    createShape: createTreeShape,
+    createShapeExplicit: createTreeShapeExplicit,
+    position: { x: 12, y: 7 }, // Planted at bottom
+  },
+];
+
+function renderShape(shape: ShapeDefinition): string {
+  // Create three compositors for three panes
+  const comp1 = new Compositor([], { x: 0, y: 0, width: 40, height: 23 });
+  const comp2 = new Compositor([], { x: 0, y: 0, width: 40, height: 23 });
+  const comp3 = new Compositor([], { x: 0, y: 0, width: 40, height: 23 });
+
+  // Pane 1: Explicit spaces
+  addBackground(comp1);
+  comp1.addObject('shape', {
+    content: shape.createShapeExplicit(),
+    position: shape.position,
     color: '#000000',
     layer: 0,
   });
 
   // Pane 2: No edge detection
   addBackground(comp2);
-  comp2.addObject('ring', {
-    content: createRingShape(),
-    position: { x: 10, y: 3 },
+  comp2.addObject('shape', {
+    content: shape.createShape(),
+    position: shape.position,
     color: '#000000',
     layer: 0,
     autoDetectEdges: false,
@@ -113,9 +481,9 @@ function getHtml(): string {
 
   // Pane 3: With edge detection
   addBackground(comp3);
-  comp3.addObject('ring', {
-    content: createRingShape(),
-    position: { x: 10, y: 3 },
+  comp3.addObject('shape', {
+    content: shape.createShape(),
+    position: shape.position,
     color: '#000000',
     layer: 0,
     autoDetectEdges: true,
@@ -134,36 +502,47 @@ function getHtml(): string {
   const output3 = comp3.render();
 
   return `
+    <div style="margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">${shape.name}</h3>
+      <div style="display: flex; gap: 1rem;">
+        <div style="flex: 1;">
+          <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Explicit Spaces</p>
+          <div class="demo-output">${renderOutput(output1)}</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="margin-bottom: 0.5rem; font-size: 0.9em;">No Edge Detection</p>
+          <div class="demo-output">${renderOutput(output2)}</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="margin-bottom: 0.5rem; font-size: 0.9em;">With Edge Detection</p>
+          <div class="demo-output">${renderOutput(output3)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function getHtml(): string {
+  const shapesHtml = shapes.map(shape => renderShape(shape)).join('');
+
+  return `
     <div class="demo-container">
       <h2>Auto-Edge Detection</h2>
 
       <div class="demo-description">
-        Demonstrates flood fill edge detection on a hollow ring shape.
-        The ring has an outer edge and an inner hole. Auto-edge detection uses flood fill
-        to distinguish between outer transparent edges and inner transparent holes.
+        Demonstrates flood fill edge detection on various shapes.
+        Auto-edge detection uses flood fill starting from viewport edges
+        to distinguish between outer transparent edges and inner hollow areas.
+        Scroll down to see different shape examples.
       </div>
 
-      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-        <div style="flex: 1;">
-          <h3 style="margin-bottom: 0.5rem;">1. Explicit Spaces</h3>
-          <p style="margin-bottom: 0.5rem; font-size: 0.9em;">Shows 'x' where spaces are in content</p>
-          <div class="demo-output">${renderOutput(output1)}</div>
-        </div>
-        <div style="flex: 1;">
-          <h3 style="margin-bottom: 0.5rem;">2. No Edge Detection</h3>
-          <p style="margin-bottom: 0.5rem; font-size: 0.9em;">autoDetectEdges: false</p>
-          <div class="demo-output">${renderOutput(output2)}</div>
-        </div>
-        <div style="flex: 1;">
-          <h3 style="margin-bottom: 0.5rem;">3. With Edge Detection</h3>
-          <p style="margin-bottom: 0.5rem; font-size: 0.9em;">autoDetectEdges: true</p>
-          <div class="demo-output">${renderOutput(output3)}</div>
-        </div>
+      <div style="margin-top: 2rem;">
+        ${shapesHtml}
       </div>
 
       <div style="margin-top: 1rem; padding: 1rem; border: 1px solid #2a2a2a; background: #f8f8f8;">
         <strong>How it works:</strong> With autoDetectEdges enabled, flood fill starts from the viewport edges
-        and marks all reachable nulls as transparent edges. Nulls that can't be reached (like the inner hole)
+        and marks all reachable spaces as transparent edges. Spaces that can't be reached (like inner holes)
         remain as opaque empty space.
       </div>
     </div>

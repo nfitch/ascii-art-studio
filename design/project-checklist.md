@@ -54,7 +54,7 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
   - [x] Interactive demos
   - [x] Showcase capabilities
 - [ ] Additional compositor features
-  - [ ] More flood-fill examples with irregular objects
+  - [x] More flood-fill examples with irregular objects
   - [ ] Implement color support with demos
   - [ ] Implement effect layers (influence at top of layer)
   - [ ] Performance optimization

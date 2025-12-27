@@ -182,7 +182,7 @@ function generateFrames() {
       position: pos.bottom,
       color: '#0000ff',
       layer: 0,
-      influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.8 } },
+      influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.5 } },
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
@@ -190,7 +190,7 @@ function generateFrames() {
         position: pos.curtain,
         color: '#00ff00',
         layer: 1,
-        influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.8 } },
+        influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.5 } },
       });
     }
     compositor.addObject('top', {
@@ -198,7 +198,7 @@ function generateFrames() {
       position: pos.top,
       color: '#ff0000',
       layer: 2,
-      influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.8 } },
+      influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.5 } },
     });
     return compositor.render();
   });
@@ -210,7 +210,7 @@ function generateFrames() {
       position: pos.bottom,
       color: '#0000ff',
       layer: 0,
-      influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.8 } },
+      influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.5 } },
     });
     if (pos.curtain) {
       compositor.addObject('curtain', {
@@ -218,7 +218,7 @@ function generateFrames() {
         position: pos.curtain,
         color: '#00ff00',
         layer: 1,
-        influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.8 } },
+        influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.5 } },
       });
     }
     compositor.addObject('top', {
@@ -226,7 +226,7 @@ function generateFrames() {
       position: pos.top,
       color: '#ff0000',
       layer: 2,
-      influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.8 } },
+      influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.5 } },
     });
     return compositor.render();
   });
@@ -266,7 +266,7 @@ function getHtml(): string {
   const modeDescriptions = {
     'lighten': 'Lighten (Black & White)',
     'multiply': 'Multiply (Red / Blue / Green)',
-    'multiply-darken': 'Multiply-Darken (Red / Blue / Green, factor=0.8)'
+    'multiply-darken': 'Multiply-Darken (Red / Blue / Green, factor=0.5)'
   };
 
   return `

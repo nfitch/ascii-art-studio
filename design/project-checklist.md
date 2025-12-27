@@ -46,10 +46,10 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
   - [x] Implement against tests
   - [x] Refine and add additional tests
   - [x] Verify all tests pass (72/72 passing)
-- [ ] Thoroughly document APIs
-  - [ ] API reference documentation
-  - [ ] Usage examples
-  - [ ] Code comments
+- [x] Thoroughly document APIs
+  - [x] API reference documentation
+  - [x] Usage examples
+  - [x] Code comments
 - [x] Build examples in HTML frontend
   - [x] Interactive demos
   - [x] Showcase capabilities

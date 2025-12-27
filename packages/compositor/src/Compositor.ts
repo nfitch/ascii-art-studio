@@ -25,12 +25,14 @@ interface Influence {
   /** Influence radius in cells (must be positive integer) */
   radius: number;
   transform: {
-    /** Transform type: 'lighten' interpolates toward white, 'darken' toward black */
-    type: 'lighten' | 'darken';
+    /** Transform type: 'lighten' (toward white), 'darken' (toward black), 'multiply' (color multiplication), 'multiply-darken' (color multiplication + darkening) */
+    type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
     /** Maximum effect strength at distance 0 (0.0 to 1.0) */
     strength: number;
     /** How influence decreases with distance */
     falloff: 'linear' | 'quadratic' | 'exponential' | 'cubic';
+    /** Darken factor for 'multiply-darken' type (0.0 to 1.0, default 0.8) */
+    darkenFactor?: number;
   };
 }
 
@@ -271,6 +273,7 @@ export class Compositor {
           type: options.influence.transform.type,
           strength: options.influence.transform.strength,
           falloff: options.influence.transform.falloff,
+          darkenFactor: options.influence.transform.darkenFactor,
         },
       } : undefined,
       flipHorizontal: false,
@@ -441,6 +444,7 @@ export class Compositor {
           type: obj.influence.transform.type,
           strength: obj.influence.transform.strength,
           falloff: obj.influence.transform.falloff,
+          darkenFactor: obj.influence.transform.darkenFactor,
         },
       } : undefined,
       flipHorizontal: obj.flipHorizontal,
@@ -596,6 +600,8 @@ export class Compositor {
    */
   private renderCell(x: number, y: number, layers: number[]): { char: string; color: string } {
     let accumulatedTransparency = 0;
+    let accumulatedMultiplyColor = '#ffffff'; // Start with white for multiply
+    let hasMultiply = false;
 
     // Traverse layers top to bottom (reverse order of sorted array)
     for (let i = layers.length - 1; i >= 0; i--) {
@@ -647,7 +653,10 @@ export class Compositor {
 
               if (cell !== null && cell !== ' ') {
                 // Non-space character - render it with accumulated transforms
-                const transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
+                let transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
+                if (hasMultiply) {
+                  transformedColor = this.applyMultiply(transformedColor, accumulatedMultiplyColor);
+                }
                 return { char: cell, color: transformedColor };
               } else if (cell === ' ' && obj.influence) {
                 // Glass pane effect: space with influence acts as transparent
@@ -657,11 +666,17 @@ export class Compositor {
                   accumulatedTransparency += strength;
                 } else if (obj.influence.transform.type === 'darken') {
                   accumulatedTransparency -= strength;
+                } else if (obj.influence.transform.type === 'multiply' || obj.influence.transform.type === 'multiply-darken') {
+                  accumulatedMultiplyColor = this.accumulateMultiply(accumulatedMultiplyColor, obj.color, strength / 100, obj.influence.transform.type, obj.influence.transform.darkenFactor);
+                  hasMultiply = true;
                 }
                 // Continue to next layer (don't return)
               } else if (cell !== null) {
                 // Space without influence - render as opaque space
-                const transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
+                let transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
+                if (hasMultiply) {
+                  transformedColor = this.applyMultiply(transformedColor, accumulatedMultiplyColor);
+                }
                 return { char: cell, color: transformedColor };
               }
             }
@@ -674,6 +689,9 @@ export class Compositor {
               accumulatedTransparency += maskValue;
             } else if (obj.influence!.transform.type === 'darken') {
               accumulatedTransparency -= maskValue;
+            } else if (obj.influence!.transform.type === 'multiply' || obj.influence!.transform.type === 'multiply-darken') {
+              accumulatedMultiplyColor = this.accumulateMultiply(accumulatedMultiplyColor, obj.color, maskValue / 100, obj.influence!.transform.type, obj.influence!.transform.darkenFactor);
+              hasMultiply = true;
             }
           }
 
@@ -729,6 +747,80 @@ export class Compositor {
       const newB = Math.round(b * (1 - factor));
       return `#${this.toHex(newR)}${this.toHex(newG)}${this.toHex(newB)}`;
     }
+  }
+
+  /**
+   * Accumulates multiply color influence.
+   *
+   * @param accumulatedColor - Current accumulated multiply color
+   * @param influenceColor - Color of the influencing object
+   * @param strength - Strength of the influence (0.0 to 1.0)
+   * @param type - Transform type ('multiply' or 'multiply-darken')
+   * @param darkenFactor - Optional darken factor for 'multiply-darken' (0.0 to 1.0)
+   * @returns Updated accumulated multiply color
+   */
+  private accumulateMultiply(
+    accumulatedColor: string,
+    influenceColor: string,
+    strength: number,
+    type: 'multiply' | 'multiply-darken',
+    darkenFactor?: number
+  ): string {
+    // Parse accumulated color
+    const r1 = parseInt(accumulatedColor.slice(1, 3), 16);
+    const g1 = parseInt(accumulatedColor.slice(3, 5), 16);
+    const b1 = parseInt(accumulatedColor.slice(5, 7), 16);
+
+    // Parse influence color
+    const r2 = parseInt(influenceColor.slice(1, 3), 16);
+    const g2 = parseInt(influenceColor.slice(3, 5), 16);
+    const b2 = parseInt(influenceColor.slice(5, 7), 16);
+
+    // Multiply normalized values (0-1 range)
+    let r = (r1 / 255) * (r2 / 255) * 255;
+    let g = (g1 / 255) * (g2 / 255) * 255;
+    let b = (b1 / 255) * (b2 / 255) * 255;
+
+    // Apply darken factor for multiply-darken
+    if (type === 'multiply-darken') {
+      const factor = darkenFactor ?? 0.8;
+      r *= factor;
+      g *= factor;
+      b *= factor;
+    }
+
+    // Lerp between accumulated color and multiplied result based on strength
+    const finalR = Math.round(r1 + (r - r1) * strength);
+    const finalG = Math.round(g1 + (g - g1) * strength);
+    const finalB = Math.round(b1 + (b - b1) * strength);
+
+    return `#${this.toHex(finalR)}${this.toHex(finalG)}${this.toHex(finalB)}`;
+  }
+
+  /**
+   * Applies accumulated multiply color to a base color.
+   *
+   * @param baseColor - Base color to transform
+   * @param multiplyColor - Accumulated multiply color
+   * @returns Transformed color
+   */
+  private applyMultiply(baseColor: string, multiplyColor: string): string {
+    // Parse base color
+    const r1 = parseInt(baseColor.slice(1, 3), 16);
+    const g1 = parseInt(baseColor.slice(3, 5), 16);
+    const b1 = parseInt(baseColor.slice(5, 7), 16);
+
+    // Parse multiply color
+    const r2 = parseInt(multiplyColor.slice(1, 3), 16);
+    const g2 = parseInt(multiplyColor.slice(3, 5), 16);
+    const b2 = parseInt(multiplyColor.slice(5, 7), 16);
+
+    // Multiply normalized values
+    const r = Math.round((r1 / 255) * (r2 / 255) * 255);
+    const g = Math.round((g1 / 255) * (g2 / 255) * 255);
+    const b = Math.round((b1 / 255) * (b2 / 255) * 255);
+
+    return `#${this.toHex(r)}${this.toHex(g)}${this.toHex(b)}`;
   }
 
   /**

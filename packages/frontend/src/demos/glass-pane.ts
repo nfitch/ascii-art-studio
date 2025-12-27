@@ -9,7 +9,9 @@ export function renderGlassPaneDemo(): string {
   return getHtml();
 }
 
-function generateScene(withGlass: boolean): { characters: string[][]; colors: string[][] } {
+function generateScene(
+  glassMode: 'none' | 'lighten' | 'multiply'
+): { characters: string[][]; colors: string[][] } {
   const compositor = new Compositor([], { x: 0, y: 0, width: 40, height: 15 });
 
   // Background pattern (layer 0)
@@ -35,7 +37,7 @@ function generateScene(withGlass: boolean): { characters: string[][]; colors: st
   });
 
   // Glass pane (layer 1) - made of spaces with influence
-  if (withGlass) {
+  if (glassMode !== 'none') {
     const glassContent: string[] = [];
     for (let i = 0; i < 12; i++) {
       glassContent.push('                    '); // 20 spaces
@@ -44,13 +46,13 @@ function generateScene(withGlass: boolean): { characters: string[][]; colors: st
     compositor.addObject('glass', {
       content: glassContent,
       position: { x: 10, y: 2 },
-      color: '#4040ff', // Blue tint
+      color: glassMode === 'lighten' ? '#4040ff' : '#0000ff', // Blue tint
       layer: 1,
       influence: {
         radius: 1,
         transform: {
-          type: 'lighten',
-          strength: 0.6,
+          type: glassMode,
+          strength: glassMode === 'lighten' ? 0.6 : 1.0,
           falloff: 'linear',
         },
       },
@@ -61,8 +63,9 @@ function generateScene(withGlass: boolean): { characters: string[][]; colors: st
 }
 
 function getHtml(): string {
-  const sceneWithGlass = generateScene(true);
-  const sceneWithoutGlass = generateScene(false);
+  const sceneWithoutGlass = generateScene('none');
+  const sceneWithLighten = generateScene('lighten');
+  const sceneWithMultiply = generateScene('multiply');
 
   return `
     <div class="demo-container">
@@ -71,24 +74,28 @@ function getHtml(): string {
       <div class="demo-description">
         Demonstrates how spaces (not just visible characters) can have influence.
         A glass pane is an invisible layer made of spaces that affects objects beneath it,
-        creating a tinted glass effect. Left shows the scene without glass, right shows with glass.
+        creating a tinted glass effect. Compare the different blend modes to see their effects.
       </div>
 
-      <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+      <div style="display: flex; gap: 1.5rem; margin-top: 1rem;">
         <div style="flex: 1;">
           <h3 style="margin-bottom: 1rem;">Without Glass Pane</h3>
           <div class="demo-output">${renderOutput(sceneWithoutGlass)}</div>
         </div>
         <div style="flex: 1;">
-          <h3 style="margin-bottom: 1rem;">With Glass Pane</h3>
-          <div class="demo-output">${renderOutput(sceneWithGlass)}</div>
+          <h3 style="margin-bottom: 1rem;">Glass Pane (Lighten)</h3>
+          <div class="demo-output">${renderOutput(sceneWithLighten)}</div>
+        </div>
+        <div style="flex: 1;">
+          <h3 style="margin-bottom: 1rem;">Glass Pane (Multiply)</h3>
+          <div class="demo-output">${renderOutput(sceneWithMultiply)}</div>
         </div>
       </div>
 
       <div style="margin-top: 1rem; padding: 1rem; border: 1px solid #2a2a2a; background: #f8f8f8;">
         <strong>How it works:</strong> The glass pane is a 20×12 region of spaces (not nulls) positioned at layer 1.
         Even though spaces are invisible, they can carry influence that affects lower layers.
-        The influence lightens the objects beneath, creating a tinted glass effect.
+        Lighten mode adds brightness with a tint, while multiply mode creates a color filter effect by multiplying the colors.
       </div>
     </div>
   `;

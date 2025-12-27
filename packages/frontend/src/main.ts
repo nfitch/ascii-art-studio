@@ -8,7 +8,8 @@ import { renderInfluenceExplorerDemo } from './demos/influence-explorer';
 import { renderGlassPaneDemo } from './demos/glass-pane';
 import { renderAnimationDemo } from './demos/animation';
 import { renderFlipTransformDemo } from './demos/flip-transform';
-import { renderAutoEdgeDemo } from './demos/auto-edge';
+import { renderEdgeDetectionStaticDemo } from './demos/auto-edge';
+import { renderEdgeDetectionDynamicDemo } from './demos/edge-detection-dynamic';
 
 // Demo registry
 const demos = [
@@ -17,7 +18,8 @@ const demos = [
   { id: 'glass-pane', title: 'Glass Pane Effect' },
   { id: 'animation', title: 'Animation' },
   { id: 'flip-transform', title: 'Flip & Transform' },
-  { id: 'auto-edge', title: 'Auto-Edge Detection' },
+  { id: 'edge-detection-static', title: 'Edge Detection: Static' },
+  { id: 'edge-detection-dynamic', title: 'Edge Detection: Dynamic' },
 ];
 
 let currentDemo: string | null = null;
@@ -79,8 +81,10 @@ function selectDemo(id: string) {
       body.innerHTML = renderAnimationDemo();
     } else if (id === 'flip-transform') {
       body.innerHTML = renderFlipTransformDemo();
-    } else if (id === 'auto-edge') {
-      body.innerHTML = renderAutoEdgeDemo();
+    } else if (id === 'edge-detection-static') {
+      body.innerHTML = renderEdgeDetectionStaticDemo();
+    } else if (id === 'edge-detection-dynamic') {
+      body.innerHTML = renderEdgeDetectionDynamicDemo();
     } else {
       // Placeholder for other demos
       body.innerHTML = `

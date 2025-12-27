@@ -5,8 +5,13 @@
 
 import { Compositor } from '../../../compositor/src/Compositor';
 
-export function renderAutoEdgeDemo(): string {
+export function renderEdgeDetectionStaticDemo(): string {
   return getHtml();
+}
+
+// Keep old name for compatibility
+export function renderAutoEdgeDemo(): string {
+  return renderEdgeDetectionStaticDemo();
 }
 
 // Shape 1: Ring
@@ -380,6 +385,67 @@ function createTreeShapeExplicit(): string[][] {
   );
 }
 
+// Shape 8: Vertical Line (1 character wide)
+function createVerticalLineShape(): (string | null)[][] {
+  const lines = [
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(1, ' ').split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createVerticalLineShapeExplicit(): string[][] {
+  const lines = [
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+    '|',
+  ];
+
+  return lines.map(line =>
+    line.padEnd(1, ' ').split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
+// Shape 9: Horizontal Line (1 character tall)
+function createHorizontalLineShape(): (string | null)[][] {
+  return [['=', '=', '=', '=', '=', '=', '=', '=', '=', '='].map(c => c === ' ' ? ' ' : c)];
+}
+
+function createHorizontalLineShapeExplicit(): string[][] {
+  return [['=', '=', '=', '=', '=', '=', '=', '=', '=', '='].map(c => c === ' ' ? 'x' : c)];
+}
+
+// Shape 10: Single Character (1x1)
+function createSingleCharShape(): (string | null)[][] {
+  return [[' #']].map(line =>
+    line.split('').map(char => char === ' ' ? ' ' : char)
+  );
+}
+
+function createSingleCharShapeExplicit(): string[][] {
+  return [[' #']].map(line =>
+    line.split('').map(char => char === ' ' ? 'x' : char)
+  );
+}
+
 function addBackground(compositor: Compositor) {
   const pattern: string[] = [];
   for (let y = 0; y < 23; y++) {
@@ -443,6 +509,24 @@ const shapes: ShapeDefinition[] = [
     createShape: createTreeShape,
     createShapeExplicit: createTreeShapeExplicit,
     position: { x: 12, y: 7 }, // Planted at bottom
+  },
+  {
+    name: 'Vertical Line',
+    createShape: createVerticalLineShape,
+    createShapeExplicit: createVerticalLineShapeExplicit,
+    position: { x: 20, y: 7 },
+  },
+  {
+    name: 'Horizontal Line',
+    createShape: createHorizontalLineShape,
+    createShapeExplicit: createHorizontalLineShapeExplicit,
+    position: { x: 15, y: 11 },
+  },
+  {
+    name: 'Single Character',
+    createShape: createSingleCharShape,
+    createShapeExplicit: createSingleCharShapeExplicit,
+    position: { x: 20, y: 11 },
   },
 ];
 
@@ -527,10 +611,10 @@ function getHtml(): string {
 
   return `
     <div class="demo-container">
-      <h2>Auto-Edge Detection</h2>
+      <h2>Edge Detection: Static</h2>
 
       <div class="demo-description">
-        Demonstrates flood fill edge detection on various shapes.
+        Demonstrates flood fill edge detection on various shapes including 1-character-wide objects.
         Auto-edge detection uses flood fill starting from viewport edges
         to distinguish between outer transparent edges and inner hollow areas.
         Scroll down to see different shape examples.

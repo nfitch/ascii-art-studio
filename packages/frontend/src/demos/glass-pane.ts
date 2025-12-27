@@ -46,13 +46,13 @@ function generateScene(
     compositor.addObject('glass', {
       content: glassContent,
       position: { x: 10, y: 2 },
-      color: glassMode === 'lighten' ? '#4040ff' : '#0000ff', // Blue tint
+      color: glassMode === 'lighten' ? '#6666ff' : '#4444ff', // Stronger blue
       layer: 1,
       influence: {
         radius: 1,
         transform: {
           type: glassMode,
-          strength: glassMode === 'lighten' ? 0.6 : 1.0,
+          strength: glassMode === 'lighten' ? 0.8 : 1.0,
           falloff: 'linear',
         },
       },

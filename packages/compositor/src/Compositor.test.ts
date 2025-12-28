@@ -1221,6 +1221,60 @@ describe('Compositor', () => {
       expect(output.characters[0][0]).toBe('#');
       expect(output.colors[0][0]).not.toBe('#ff0000'); // Should be lightened from red
     });
+
+    test('applies custom influence color (blue object with red glow)', () => {
+      // Create two blue objects close together, first one has red influence
+      compositor.addObject('obj1', {
+        content: ['###', '###', '###'],
+        position: { x: 2, y: 2 },
+        color: '#0000ff', // Blue
+        layer: 0,
+        influence: {
+          radius: 2,
+          color: '#ff0000', // Red influence
+          transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' },
+        },
+      });
+
+      compositor.addObject('obj2', {
+        content: ['@@@', '@@@', '@@@'],
+        position: { x: 5, y: 2 }, // 1 cell gap, within radius 2
+        color: '#0000ff', // Blue
+        layer: 0,
+        influence: {
+          radius: 2,
+          color: '#ff0000', // Red influence
+          transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 10, height: 6 });
+
+      // obj2's left edge at (5,2) should be influenced by obj1's red glow
+      const influencedColor = output.colors[2][5];
+
+      // Should NOT be pure blue (no influence)
+      expect(influencedColor).not.toBe('#0000ff');
+
+      // Should NOT be white/light (would indicate lightening toward white instead of red)
+      expect(influencedColor).not.toBe('#ffffff');
+      expect(influencedColor).not.toMatch(/^#[c-f][c-f][c-f]/); // Not very light colors
+
+      // Should be purple-ish (blue lightened toward red)
+      // Parse the color
+      const r = parseInt(influencedColor.slice(1, 3), 16);
+      const g = parseInt(influencedColor.slice(3, 5), 16);
+      const b = parseInt(influencedColor.slice(5, 7), 16);
+
+      // Red component should be significant (not near 0)
+      expect(r).toBeGreaterThan(50);
+      // Blue component should still be present but reduced
+      expect(b).toBeGreaterThan(0);
+      // Green should be low (both blue and red have low green)
+      expect(g).toBeLessThan(100);
+      // Red should be >= blue (more red than blue due to red influence)
+      expect(r).toBeGreaterThanOrEqual(b);
+    });
   });
 
   describe('Dirty region optimization', () => {

@@ -32,6 +32,10 @@ class Compositor {
   getObject(id: string): CompositorObject;
   listObjects(): CompositorObject[];
 
+  // Layer effects - uniform color transformations applied to entire layers
+  setLayerEffect(layer: number, effect: LayerEffect | null): void;
+  getLayerEffect(layer: number): LayerEffect | null;
+
   // Rendering
   render(viewport?: Viewport): RenderOutput;
   getCanvasBounds(): Bounds;
@@ -62,11 +66,20 @@ interface Position {
 
 interface Influence {
   radius: number;  // Number of cells, must be positive integer
+  color?: string;  // Override color for influence (hex #RRGGBB). If not specified, uses object's color
   transform: {
-    type: 'lighten' | 'darken';  // Initial implementation only
+    type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
     strength: number;  // 0.0 to 1.0, max effect at distance 0
     falloff: 'linear' | 'quadratic' | 'exponential' | 'cubic';
+    darkenFactor?: number;  // 0.0 to 1.0, only for multiply-darken (default: 0.8)
   };
+}
+
+interface LayerEffect {
+  color: string;  // Target color for the effect (hex #RRGGBB)
+  type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
+  strength: number;  // 0.0 to 1.0, effect intensity
+  darkenFactor?: number;  // 0.0 to 1.0, only for multiply-darken (default: 0.8)
 }
 
 interface AddObjectOptions {

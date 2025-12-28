@@ -270,6 +270,17 @@ export class Compositor {
       if (options.influence.transform.strength < 0 || options.influence.transform.strength > 1.0) {
         throw new Error('Influence strength must be between 0.0 and 1.0');
       }
+      if (options.influence.color && !this.isValidColor(options.influence.color)) {
+        throw new Error('Influence color must be in #RRGGBB format');
+      }
+      if (options.influence.transform.darkenFactor !== undefined) {
+        if (options.influence.transform.darkenFactor < 0 || options.influence.transform.darkenFactor > 1.0) {
+          throw new Error('Influence darkenFactor must be between 0.0 and 1.0');
+        }
+        if (options.influence.transform.type !== 'multiply-darken') {
+          throw new Error('Influence darkenFactor can only be used with multiply-darken transform type');
+        }
+      }
     }
 
     // Generate influence mask (pre-compute for performance)
@@ -527,8 +538,13 @@ export class Compositor {
     }
 
     // Validate darkenFactor if present
-    if (effect.darkenFactor !== undefined && (effect.darkenFactor < 0 || effect.darkenFactor > 1)) {
-      throw new Error('darkenFactor must be between 0.0 and 1.0');
+    if (effect.darkenFactor !== undefined) {
+      if (effect.darkenFactor < 0 || effect.darkenFactor > 1) {
+        throw new Error('darkenFactor must be between 0.0 and 1.0');
+      }
+      if (effect.type !== 'multiply-darken') {
+        throw new Error('darkenFactor can only be used with multiply-darken transform type');
+      }
     }
 
     // Store deep clone to prevent external mutations
@@ -867,122 +883,6 @@ export class Compositor {
   }
 
   /**
-   * Applies transparency transform to a color.
-   *
-   * Positive transparency: interpolate toward white (lighten)
-   * Negative transparency: interpolate toward black (darken)
-   * Zero transparency: return original color
-   *
-   * @param color - Base color in #RRGGBB format
-   * @param transparencyPercent - Transparency amount (-100 to 100+)
-   * @returns Transformed color in #RRGGBB format
-   */
-  private applyTransparency(color: string, transparencyPercent: number): string {
-    if (transparencyPercent === 0) {
-      return color;
-    }
-
-    // Parse hex color components
-    const r = parseInt(color.slice(1, 3), 16);
-    const g = parseInt(color.slice(3, 5), 16);
-    const b = parseInt(color.slice(5, 7), 16);
-
-    if (transparencyPercent >= 100) {
-      return '#ffffff'; // Fully transparent = white
-    }
-
-    if (transparencyPercent > 0) {
-      // Lighten: interpolate towards white
-      const factor = transparencyPercent / 100;
-      const newR = Math.round(r + (255 - r) * factor);
-      const newG = Math.round(g + (255 - g) * factor);
-      const newB = Math.round(b + (255 - b) * factor);
-      return `#${this.toHex(newR)}${this.toHex(newG)}${this.toHex(newB)}`;
-    } else {
-      // Darken: interpolate towards black (negative transparency)
-      const factor = Math.abs(transparencyPercent) / 100;
-      const newR = Math.round(r * (1 - factor));
-      const newG = Math.round(g * (1 - factor));
-      const newB = Math.round(b * (1 - factor));
-      return `#${this.toHex(newR)}${this.toHex(newG)}${this.toHex(newB)}`;
-    }
-  }
-
-  /**
-   * Accumulates multiply color influence.
-   *
-   * @param accumulatedColor - Current accumulated multiply color
-   * @param influenceColor - Color of the influencing object
-   * @param strength - Strength of the influence (0.0 to 1.0)
-   * @param type - Transform type ('multiply' or 'multiply-darken')
-   * @param darkenFactor - Optional darken factor for 'multiply-darken' (0.0 to 1.0)
-   * @returns Updated accumulated multiply color
-   */
-  private accumulateMultiply(
-    accumulatedColor: string,
-    influenceColor: string,
-    strength: number,
-    type: 'multiply' | 'multiply-darken',
-    darkenFactor?: number
-  ): string {
-    // Parse accumulated color
-    const r1 = parseInt(accumulatedColor.slice(1, 3), 16);
-    const g1 = parseInt(accumulatedColor.slice(3, 5), 16);
-    const b1 = parseInt(accumulatedColor.slice(5, 7), 16);
-
-    // Parse influence color
-    const r2 = parseInt(influenceColor.slice(1, 3), 16);
-    const g2 = parseInt(influenceColor.slice(3, 5), 16);
-    const b2 = parseInt(influenceColor.slice(5, 7), 16);
-
-    // Multiply normalized values (0-1 range)
-    let r = (r1 / 255) * (r2 / 255) * 255;
-    let g = (g1 / 255) * (g2 / 255) * 255;
-    let b = (b1 / 255) * (b2 / 255) * 255;
-
-    // Apply darken factor for multiply-darken
-    if (type === 'multiply-darken') {
-      const factor = darkenFactor ?? 0.8;
-      r *= factor;
-      g *= factor;
-      b *= factor;
-    }
-
-    // Lerp between accumulated color and multiplied result based on strength
-    const finalR = Math.round(r1 + (r - r1) * strength);
-    const finalG = Math.round(g1 + (g - g1) * strength);
-    const finalB = Math.round(b1 + (b - b1) * strength);
-
-    return `#${this.toHex(finalR)}${this.toHex(finalG)}${this.toHex(finalB)}`;
-  }
-
-  /**
-   * Applies accumulated multiply color to a base color.
-   *
-   * @param baseColor - Base color to transform
-   * @param multiplyColor - Accumulated multiply color
-   * @returns Transformed color
-   */
-  private applyMultiply(baseColor: string, multiplyColor: string): string {
-    // Parse base color
-    const r1 = parseInt(baseColor.slice(1, 3), 16);
-    const g1 = parseInt(baseColor.slice(3, 5), 16);
-    const b1 = parseInt(baseColor.slice(5, 7), 16);
-
-    // Parse multiply color
-    const r2 = parseInt(multiplyColor.slice(1, 3), 16);
-    const g2 = parseInt(multiplyColor.slice(3, 5), 16);
-    const b2 = parseInt(multiplyColor.slice(5, 7), 16);
-
-    // Multiply normalized values
-    const r = Math.round((r1 / 255) * (r2 / 255) * 255);
-    const g = Math.round((g1 / 255) * (g2 / 255) * 255);
-    const b = Math.round((b1 / 255) * (b2 / 255) * 255);
-
-    return `#${this.toHex(r)}${this.toHex(g)}${this.toHex(b)}`;
-  }
-
-  /**
    * Converts a number (0-255) to a 2-digit hex string.
    */
   private toHex(value: number): string {
@@ -1214,28 +1114,37 @@ export class Compositor {
     const height = content.length;
     const width = content[0].length;
 
-    // Bounds check
-    if (y < 0 || y >= height || x < 0 || x >= width) {
-      return;
+    // Use iterative approach with queue to avoid stack overflow on large regions
+    const queue: Array<{ x: number; y: number }> = [{ x, y }];
+
+    while (queue.length > 0) {
+      const pos = queue.shift()!;
+      const px = pos.x;
+      const py = pos.y;
+
+      // Bounds check
+      if (py < 0 || py >= height || px < 0 || px >= width) {
+        continue;
+      }
+
+      const key = `${px},${py}`;
+      if (visited.has(key)) {
+        continue; // Already visited
+      }
+
+      if (content[py][px] !== ' ') {
+        continue; // Not a space - don't fill
+      }
+
+      visited.add(key);
+      content[py][px] = null; // Mark as transparent
+
+      // Add adjacent cells to queue (4-way connectivity)
+      queue.push({ x: px + 1, y: py });
+      queue.push({ x: px - 1, y: py });
+      queue.push({ x: px, y: py + 1 });
+      queue.push({ x: px, y: py - 1 });
     }
-
-    const key = `${x},${y}`;
-    if (visited.has(key)) {
-      return; // Already visited
-    }
-
-    if (content[y][x] !== ' ') {
-      return; // Not a space - don't fill
-    }
-
-    visited.add(key);
-    content[y][x] = null; // Mark as transparent
-
-    // Recursively fill adjacent cells (4-way connectivity)
-    this.floodFill(content, x + 1, y, visited);
-    this.floodFill(content, x - 1, y, visited);
-    this.floodFill(content, x, y + 1, visited);
-    this.floodFill(content, x, y - 1, visited);
   }
 
   /**

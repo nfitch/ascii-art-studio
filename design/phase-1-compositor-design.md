@@ -137,42 +137,58 @@ null, 25%, 50%, 50%, 50%, 25%
 **Rendering algorithm:**
 ```javascript
 function renderCell(x, y) {
-  let accumulatedTransparency = 0;
+  let workingColor = '#000000';  // Track background color
+  let transformsToApply = [];     // Collect transforms for content
 
   for (let layer of layers) {  // top → bottom
-
-    if (accumulatedTransparency >= 100) {
-      return ' ';  // completely transparent
+    // Collect layer effect as transform
+    if (layerEffect[layer]) {
+      transformsToApply.push(layerEffect[layer]);
     }
 
-    if (layer.content[x][y] !== null) {
-      return applyTransparency(layer.content[x][y], accumulatedTransparency);
-    }
+    for (let obj of objectsOnLayer) {
+      let maskValue = obj.influenceMask[x][y];
 
-    if (layer.transparencyMask[x][y] !== null) {
-      accumulatedTransparency += layer.transparencyMask[x][y];
-    }
+      if (maskValue === 100) {
+        // Solid content - apply all transforms to object color
+        let finalColor = obj.color;
+        for (let transform of transformsToApply) {
+          finalColor = applyTransform(finalColor, transform);
+        }
+        return { char: obj.content[x][y], color: finalColor };
+      }
 
-    if (accumulatedTransparency >= 100) {
-      return ' ';
+      if (maskValue > 0 && maskValue < 100) {
+        // Influence gradient - collect transform and apply to working color
+        let strength = (maskValue / 100) * obj.influence.strength;
+        let transform = { ...obj.influence.transform, strength };
+        transformsToApply.push(transform);
+        workingColor = applyTransform(workingColor, transform);
+      }
     }
   }
 
-  return ' ';  // no content found
+  // No content - apply transforms to working color (background)
+  let finalColor = workingColor;
+  for (let transform of transformsToApply) {
+    finalColor = applyTransform(finalColor, transform);
+  }
+  return { char: ' ', color: finalColor };
 }
 ```
 
 **Key points:**
 - Traverse layers top to bottom
-- Accumulate transparency values (0-100%)
-- When accumulated transparency >= 100, render blank
-- When content found, apply accumulated transparency to its color
-- `null` in mask = no influence from that layer
+- Collect transforms (layer effects + influences) as we go
+- Apply transforms iteratively to working color (background)
+- When content found, apply all collected transforms to object color
+- Transform types: lighten, darken, multiply, multiply-darken
 
 **Rationale:**
-- Additive accumulation is intuitive
-- Multiple objects can combine effects
-- Top-down makes layer precedence clear
+- Color interpolation more flexible than transparency percentages
+- Supports colored influences (blue object with red glow)
+- Layer effects and object influences use same transform system
+- Top-down traversal makes layer precedence clear
 
 ## Architecture Decisions
 
@@ -333,13 +349,15 @@ function floodFill(mask: Cell[][], x: number, y: number, visited: Set<string>) {
   visited.add(`${x},${y}`);
   mask[y][x] = null;  // mark as transparent
 
-  // Recursively fill adjacent cells
+  // Recursively fill adjacent cells (iterative version used to avoid stack overflow)
   floodFill(mask, x+1, y, visited);
   floodFill(mask, x-1, y, visited);
   floodFill(mask, x, y+1, visited);
   floodFill(mask, x, y-1, visited);
 }
 ```
+
+**Edge case:** If content is all spaces, all cells become transparent. This creates a fully transparent object that can still emit influence, useful for creating invisible "effect zones" (light sources, fog regions, etc.).
 
 ### Influence Mask Generation
 When an object has an `influence` property, generate an extended mask:
@@ -441,41 +459,64 @@ content: [['#', ' ', '#']]   // Middle cell blocks lower layer, renders as space
 ```
 
 **Implemented behavior:**
-- Space characters WITH influence act as transparent (glass pane effect)
-  - Allow lower layers to show through
-  - Apply influence transform to lower layer colors
-  - Enable atmospheric effects and tinted regions
-- Space characters WITHOUT influence render as opaque spaces
-  - Block lower layers from showing
-  - Display using the object's color
+- **Space characters WITH influence** act as transparent (glass pane effect)
+  - Lower layers show through (character remains visible)
+  - Influence transform modifies the color of content below
+  - Enables atmospheric effects and tinted regions (colored fog, light beams)
+- **Space characters WITHOUT influence** render as opaque spaces
+  - Block lower layers completely (character and color)
+  - Display as space character with the object's color
+  - Same as solid content, just renders space instead of symbol
 
 ### Transform Type Semantics
 
 The influence transform type determines how lower layer colors are affected:
 
-- **lighten**: Adds transparency effect (lightens lower layer's color)
-- **darken**: Removes transparency effect (darkens lower layer's color)
-- **multiply**: Color blending - **NOT IMPLEMENTED YET** (see Future Experiments)
+- **lighten**: Interpolates toward target color (lightening effect)
+- **darken**: Interpolates toward target color (darkening effect)
+- **multiply**: Color filter multiplication (blends colors)
+- **multiply-darken**: Multiply with additional darkening factor
 
-**For initial implementation:** Only `lighten` and `darken` are supported.
+All four transform types are fully implemented and tested.
+
+### 4. Layer Effects
+
+Layer effects apply uniform color transformations to entire layers. Unlike influence (which is localized around objects), layer effects affect every pixel in the viewport at a specific layer.
+
+**Key characteristics:**
+- Applied to entire viewport, not just around objects
+- Effects stack: layer 2 effects apply after layer 1 effects
+- Independent from object influence
+- Can be used for atmospheric effects (lighting, fog, tinting)
+
+**Transform types:**
+- **lighten**: Interpolates all colors toward target color (brightening effect)
+- **darken**: Interpolates all colors toward target color (dimming effect)
+- **multiply**: Color filter multiplication (color tinting)
+- **multiply-darken**: Multiply with additional darkening factor
+
+**Use cases:**
+- Daylight/nighttime transitions (lighten/darken toward white/black)
+- Atmospheric tinting (sunset = multiply by orange)
+- Depth fog effects (lighten distant layers)
+- Color grading for entire scenes
 
 ## Future Experiments
 
 Potential enhancements for future consideration:
 
-1. **Multiply transform**
-   - Color blending between layers
-   - Experiment with different blending algorithms
-   - May enable interesting overlay effects
-
-2. **Additional transform types**
+1. **Additional blend modes**
    - Screen, overlay, color dodge, etc.
    - Based on need and performance impact
 
-3. **Per-cell dirty region optimization**
+2. **Per-cell dirty region optimization**
    - Current implementation uses whole-viewport caching
    - Could optimize to only recompute changed cells
    - Complexity: influence effects span multiple cells
+
+3. **Gradient layer effects**
+   - Variable strength across viewport (linear/radial gradients)
+   - Useful for vignetting, spotlight effects
 
 ## Related Documents
 

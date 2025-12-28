@@ -56,7 +56,11 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
 - [ ] Additional compositor features
   - [x] More flood-fill examples with irregular objects
   - [x] Implement color support with demos
-  - [ ] Implement effect layers (influence at top of layer)
+  - [x] Implement layer effects (uniform viewport color transformations)
+    - [x] Comprehensive test coverage (117 tests)
+    - [x] All 4 blend modes (lighten, darken, multiply, multiply-darken)
+    - [x] Layer Effects demo
+    - [x] Blue-glows-red mode in Influence Explorer
   - [ ] Performance optimization
 
 **REVIEW GATE:** Manual testing and verification before Phase 2

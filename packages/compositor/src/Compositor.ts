@@ -21,9 +21,11 @@ interface Position {
  * Proximity-based influence configuration.
  * Objects emit gradients that affect the colors of lower layers based on distance.
  */
-interface Influence {
+export interface Influence {
   /** Influence radius in cells (must be positive integer) */
   radius: number;
+  /** Override color for influence (hex #RRGGBB). If not specified, uses object's color. */
+  color?: string;
   transform: {
     /** Transform type: 'lighten' (toward white), 'darken' (toward black), 'multiply' (color multiplication), 'multiply-darken' (color multiplication + darkening) */
     type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
@@ -288,6 +290,7 @@ export class Compositor {
       // Deep clone influence to prevent external mutations
       influence: options.influence ? {
         radius: options.influence.radius,
+        color: options.influence.color,
         transform: {
           type: options.influence.transform.type,
           strength: options.influence.transform.strength,
@@ -696,36 +699,29 @@ export class Compositor {
    * @returns Rendered character and color
    */
   private renderCell(x: number, y: number, layers: number[]): { char: string; color: string } {
-    let accumulatedTransparency = 0;
-    let accumulatedMultiplyColor = '#ffffff'; // Start with white for multiply
-    let hasMultiply = false;
-    // Collect layer effects to apply at the end (in order encountered)
-    const layerEffectsToApply: Array<{ color: string; strength: number }> = [];
+    // Working color accumulates influence transforms (affects background view from below)
+    let workingColor = '#000000';
+    // Collect all transforms (layer effects and influences) to apply to final content color
+    const transformsToApply: Array<{
+      targetColor: string; // Color to interpolate toward (for lighten/darken) or multiply by
+      type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
+      strength: number;
+      darkenFactor?: number;
+    }> = [];
 
     // Traverse layers top to bottom (reverse order of sorted array)
     for (let i = layers.length - 1; i >= 0; i--) {
       const layer = layers[i];
 
-      // Collect layer effect BEFORE rendering objects on this layer
+      // Collect layer effect as a transform
       const layerEffect = this.layerEffects.get(layer);
       if (layerEffect && layerEffect.strength > 0) {
-        // Layer effects for lighten/darken are applied to the final color
-        if (layerEffect.type === 'lighten' || layerEffect.type === 'darken') {
-          // Collect for later application
-          layerEffectsToApply.push({
-            color: layerEffect.color,
-            strength: layerEffect.strength
-          });
-        } else if (layerEffect.type === 'multiply' || layerEffect.type === 'multiply-darken') {
-          accumulatedMultiplyColor = this.accumulateMultiply(
-            accumulatedMultiplyColor,
-            layerEffect.color,
-            layerEffect.strength,
-            layerEffect.type,
-            layerEffect.darkenFactor
-          );
-          hasMultiply = true;
-        }
+        transformsToApply.push({
+          targetColor: layerEffect.color,
+          type: layerEffect.type,
+          strength: layerEffect.strength,
+          darkenFactor: layerEffect.darkenFactor,
+        });
       }
 
       const objectsOnLayer = this.getObjectsOnLayer(layer);
@@ -754,11 +750,6 @@ export class Compositor {
             continue;
           }
 
-          // Early exit if fully transparent
-          if (accumulatedTransparency >= 100) {
-            return { char: ' ', color: '#000000' };
-          }
-
           // maskValue === 100 means this is an opaque content cell
           if (maskValue === 100) {
             const contentY = localY;
@@ -774,75 +765,103 @@ export class Compositor {
               const cell = obj.content[contentY][contentX];
 
               if (cell !== null && cell !== ' ') {
-                // Non-space character - render it with accumulated transforms
-                let transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
-                if (hasMultiply) {
-                  transformedColor = this.applyMultiply(transformedColor, accumulatedMultiplyColor);
+                // Non-space character - apply all transforms to object color
+                let finalColor = obj.color;
+                for (let j = transformsToApply.length - 1; j >= 0; j--) {
+                  const transform = transformsToApply[j];
+                  if (transform.type === 'lighten' || transform.type === 'darken') {
+                    finalColor = this.interpolateColor(finalColor, transform.targetColor, transform.strength);
+                  } else if (transform.type === 'multiply') {
+                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply', undefined);
+                  } else if (transform.type === 'multiply-darken') {
+                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply-darken', transform.darkenFactor);
+                  }
                 }
-                // Apply all collected layer effects in order
-                for (const effect of layerEffectsToApply) {
-                  transformedColor = this.interpolateColor(transformedColor, effect.color, effect.strength);
-                }
-                return { char: cell, color: transformedColor };
+                return { char: cell, color: finalColor };
               } else if (cell === ' ' && obj.influence) {
-                // Glass pane effect: space with influence acts as transparent
-                // Accumulate the influence transform and continue to lower layers
-                const strength = obj.influence.transform.strength * 100;
-                if (obj.influence.transform.type === 'lighten') {
-                  accumulatedTransparency += strength;
-                } else if (obj.influence.transform.type === 'darken') {
-                  accumulatedTransparency -= strength;
-                } else if (obj.influence.transform.type === 'multiply' || obj.influence.transform.type === 'multiply-darken') {
-                  accumulatedMultiplyColor = this.accumulateMultiply(accumulatedMultiplyColor, obj.color, strength / 100, obj.influence.transform.type, obj.influence.transform.darkenFactor);
-                  hasMultiply = true;
+                // Glass pane effect: space with influence - collect as transform and apply to working color
+                const strength = obj.influence.transform.strength;
+                const targetColor =
+                  obj.influence.transform.type === 'lighten' ? (obj.influence.color ?? '#ffffff') :
+                  obj.influence.transform.type === 'darken' ? (obj.influence.color ?? '#000000') :
+                  (obj.influence.color ?? obj.color);
+
+                // Collect for later application to content
+                transformsToApply.push({
+                  targetColor,
+                  type: obj.influence.transform.type,
+                  strength,
+                  darkenFactor: obj.influence.transform.darkenFactor,
+                });
+
+                // Also apply to working color for background
+                if (obj.influence.transform.type === 'lighten' || obj.influence.transform.type === 'darken') {
+                  workingColor = this.interpolateColor(workingColor, targetColor, strength);
+                } else if (obj.influence.transform.type === 'multiply') {
+                  workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply', undefined);
+                } else if (obj.influence.transform.type === 'multiply-darken') {
+                  workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply-darken', obj.influence.transform.darkenFactor);
                 }
                 // Continue to next layer (don't return)
               } else if (cell !== null) {
-                // Space without influence - render as opaque space
-                let transformedColor = this.applyTransparency(obj.color, accumulatedTransparency);
-                if (hasMultiply) {
-                  transformedColor = this.applyMultiply(transformedColor, accumulatedMultiplyColor);
+                // Space without influence - apply all transforms to object color
+                let finalColor = obj.color;
+                for (let j = transformsToApply.length - 1; j >= 0; j--) {
+                  const transform = transformsToApply[j];
+                  if (transform.type === 'lighten' || transform.type === 'darken') {
+                    finalColor = this.interpolateColor(finalColor, transform.targetColor, transform.strength);
+                  } else if (transform.type === 'multiply') {
+                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply', undefined);
+                  } else if (transform.type === 'multiply-darken') {
+                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply-darken', transform.darkenFactor);
+                  }
                 }
-                // Apply all collected layer effects in order
-                for (const effect of layerEffectsToApply) {
-                  transformedColor = this.interpolateColor(transformedColor, effect.color, effect.strength);
-                }
-                return { char: cell, color: transformedColor };
+                return { char: cell, color: finalColor };
               }
             }
           }
 
           // maskValue < 100: influence gradient (not content)
-          // Accumulate transparency based on transform type
+          // Collect as transform and apply to working color
           if (maskValue > 0 && maskValue < 100) {
-            if (obj.influence!.transform.type === 'lighten') {
-              accumulatedTransparency += maskValue;
-            } else if (obj.influence!.transform.type === 'darken') {
-              accumulatedTransparency -= maskValue;
-            } else if (obj.influence!.transform.type === 'multiply' || obj.influence!.transform.type === 'multiply-darken') {
-              accumulatedMultiplyColor = this.accumulateMultiply(accumulatedMultiplyColor, obj.color, maskValue / 100, obj.influence!.transform.type, obj.influence!.transform.darkenFactor);
-              hasMultiply = true;
-            }
-          }
+            const strength = (maskValue / 100) * obj.influence!.transform.strength;
+            const targetColor =
+              obj.influence!.transform.type === 'lighten' ? (obj.influence!.color ?? '#ffffff') :
+              obj.influence!.transform.type === 'darken' ? (obj.influence!.color ?? '#000000') :
+              (obj.influence!.color ?? obj.color);
 
-          // Check again if accumulated transparency >= 100
-          if (accumulatedTransparency >= 100) {
-            return { char: ' ', color: '#000000' };
+            // Collect for later application to content
+            transformsToApply.push({
+              targetColor,
+              type: obj.influence!.transform.type,
+              strength,
+              darkenFactor: obj.influence!.transform.darkenFactor,
+            });
+
+            // Also apply to working color for background
+            if (obj.influence!.transform.type === 'lighten' || obj.influence!.transform.type === 'darken') {
+              workingColor = this.interpolateColor(workingColor, targetColor, strength);
+            } else if (obj.influence!.transform.type === 'multiply') {
+              workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply', undefined);
+            } else if (obj.influence!.transform.type === 'multiply-darken') {
+              workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply-darken', obj.influence!.transform.darkenFactor);
+            }
           }
         }
       }
     }
 
-    // No content found at this position
-    // Apply accumulated transforms to default black color
-    let finalColor = '#000000';
-    finalColor = this.applyTransparency(finalColor, accumulatedTransparency);
-    if (hasMultiply) {
-      finalColor = this.applyMultiply(finalColor, accumulatedMultiplyColor);
-    }
-    // Apply all collected layer effects in order
-    for (const effect of layerEffectsToApply) {
-      finalColor = this.interpolateColor(finalColor, effect.color, effect.strength);
+    // No content found at this position - apply all transforms to working color
+    let finalColor = workingColor;
+    for (let j = transformsToApply.length - 1; j >= 0; j--) {
+      const transform = transformsToApply[j];
+      if (transform.type === 'lighten' || transform.type === 'darken') {
+        finalColor = this.interpolateColor(finalColor, transform.targetColor, transform.strength);
+      } else if (transform.type === 'multiply') {
+        finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply', undefined);
+      } else if (transform.type === 'multiply-darken') {
+        finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply-darken', transform.darkenFactor);
+      }
     }
     return { char: ' ', color: finalColor };
   }
@@ -998,6 +1017,55 @@ export class Compositor {
     const b = Math.round(b1 + (b2 - b1) * t);
 
     return `#${this.toHex(r)}${this.toHex(g)}${this.toHex(b)}`;
+  }
+
+  /**
+   * Applies multiply blend to a color for layer effects.
+   * Used for layer-level multiply transformations.
+   *
+   * @param baseColor - Base color in #RRGGBB format
+   * @param multiplyColor - Color to multiply by
+   * @param strength - Blend strength (0.0 to 1.0)
+   * @param type - multiply or multiply-darken
+   * @param darkenFactor - Darken factor for multiply-darken (0.0 to 1.0, default 0.8)
+   * @returns Transformed color in #RRGGBB format
+   */
+  private applyLayerMultiply(
+    baseColor: string,
+    multiplyColor: string,
+    strength: number,
+    type: 'multiply' | 'multiply-darken',
+    darkenFactor?: number
+  ): string {
+    // Parse base color
+    const r1 = parseInt(baseColor.slice(1, 3), 16);
+    const g1 = parseInt(baseColor.slice(3, 5), 16);
+    const b1 = parseInt(baseColor.slice(5, 7), 16);
+
+    // Parse multiply color
+    let r2 = parseInt(multiplyColor.slice(1, 3), 16);
+    let g2 = parseInt(multiplyColor.slice(3, 5), 16);
+    let b2 = parseInt(multiplyColor.slice(5, 7), 16);
+
+    // Apply darken factor if multiply-darken
+    if (type === 'multiply-darken') {
+      const factor = darkenFactor || 0.8;
+      r2 = Math.round(r2 * factor);
+      g2 = Math.round(g2 * factor);
+      b2 = Math.round(b2 * factor);
+    }
+
+    // Multiply normalized values
+    const r = Math.round((r1 / 255) * (r2 / 255) * 255);
+    const g = Math.round((g1 / 255) * (g2 / 255) * 255);
+    const b = Math.round((b1 / 255) * (b2 / 255) * 255);
+
+    // Lerp between base and multiplied based on strength
+    const finalR = Math.round(r1 + (r - r1) * strength);
+    const finalG = Math.round(g1 + (g - g1) * strength);
+    const finalB = Math.round(b1 + (b - b1) * strength);
+
+    return `#${this.toHex(finalR)}${this.toHex(finalG)}${this.toHex(finalB)}`;
   }
 
   /**

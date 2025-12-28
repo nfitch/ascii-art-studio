@@ -7,7 +7,7 @@ import { Compositor } from '../../../compositor/src/Compositor';
 
 let currentFrame = 0;
 const totalFrames = 19;
-let currentMode: 'lighten' | 'multiply' | 'multiply-darken' = 'lighten';
+let currentMode: 'lighten' | 'multiply' | 'multiply-darken' | 'blue-glows-red' = 'lighten';
 
 // Pre-generate all frames for all variations
 const frames: {
@@ -17,6 +17,8 @@ const frames: {
   multiplyRadius4: { characters: string[][]; colors: string[][] }[];
   multiplyDarkenRadius2: { characters: string[][]; colors: string[][] }[];
   multiplyDarkenRadius4: { characters: string[][]; colors: string[][] }[];
+  blueGlowsRedRadius2: { characters: string[][]; colors: string[][] }[];
+  blueGlowsRedRadius4: { characters: string[][]; colors: string[][] }[];
 } = {
   radius2: [],
   radius4: [],
@@ -24,6 +26,8 @@ const frames: {
   multiplyRadius4: [],
   multiplyDarkenRadius2: [],
   multiplyDarkenRadius4: [],
+  blueGlowsRedRadius2: [],
+  blueGlowsRedRadius4: [],
 };
 
 export function renderInfluenceExplorerDemo(): string {
@@ -230,6 +234,63 @@ function generateFrames() {
     });
     return compositor.render();
   });
+
+  // Row 4: Blue Glows Red
+  frames.blueGlowsRedRadius2 = positions.map((pos) => {
+    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
+    compositor.addObject('bottom', {
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
+      position: pos.bottom,
+      color: '#0000ff',
+      layer: 0,
+      influence: { radius: 2, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
+    });
+    if (pos.curtain) {
+      compositor.addObject('curtain', {
+        content: Array(12).fill('███████████████████████████████████'),
+        position: pos.curtain,
+        color: '#0000ff',
+        layer: 1,
+        influence: { radius: 2, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
+      });
+    }
+    compositor.addObject('top', {
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
+      position: pos.top,
+      color: '#0000ff',
+      layer: 2,
+      influence: { radius: 2, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
+    });
+    return compositor.render();
+  });
+
+  frames.blueGlowsRedRadius4 = positions.map((pos) => {
+    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
+    compositor.addObject('bottom', {
+      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
+      position: pos.bottom,
+      color: '#0000ff',
+      layer: 0,
+      influence: { radius: 4, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
+    });
+    if (pos.curtain) {
+      compositor.addObject('curtain', {
+        content: Array(12).fill('███████████████████████████████████'),
+        position: pos.curtain,
+        color: '#0000ff',
+        layer: 1,
+        influence: { radius: 4, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
+      });
+    }
+    compositor.addObject('top', {
+      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
+      position: pos.top,
+      color: '#0000ff',
+      layer: 2,
+      influence: { radius: 4, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
+    });
+    return compositor.render();
+  });
 }
 
 function getHtml(): string {
@@ -258,15 +319,18 @@ function getHtml(): string {
   // Get the appropriate frames for the current mode
   const radius2Frames = currentMode === 'lighten' ? frames.radius2 :
                         currentMode === 'multiply' ? frames.multiplyRadius2 :
-                        frames.multiplyDarkenRadius2;
+                        currentMode === 'multiply-darken' ? frames.multiplyDarkenRadius2 :
+                        frames.blueGlowsRedRadius2;
   const radius4Frames = currentMode === 'lighten' ? frames.radius4 :
                         currentMode === 'multiply' ? frames.multiplyRadius4 :
-                        frames.multiplyDarkenRadius4;
+                        currentMode === 'multiply-darken' ? frames.multiplyDarkenRadius4 :
+                        frames.blueGlowsRedRadius4;
 
   const modeDescriptions = {
     'lighten': 'Lighten (Black & White)',
     'multiply': 'Multiply (Light Red / Light Blue / Light Green)',
-    'multiply-darken': 'Multiply-Darken (Light Red / Light Blue / Light Green, factor=0.3)'
+    'multiply-darken': 'Multiply-Darken (Light Red / Light Blue / Light Green, factor=0.3)',
+    'blue-glows-red': 'Blue Glows Red (Blue objects with red influence)'
   };
 
   return `
@@ -285,6 +349,7 @@ function getHtml(): string {
             <option value="lighten" ${currentMode === 'lighten' ? 'selected' : ''}>Lighten (Black & White)</option>
             <option value="multiply" ${currentMode === 'multiply' ? 'selected' : ''}>Multiply (Color)</option>
             <option value="multiply-darken" ${currentMode === 'multiply-darken' ? 'selected' : ''}>Multiply-Darken (Color)</option>
+            <option value="blue-glows-red" ${currentMode === 'blue-glows-red' ? 'selected' : ''}>Blue Glows Red</option>
           </select>
         </div>
         <div class="control-group">
@@ -348,7 +413,7 @@ function renderOutput(output: { characters: string[][]; colors: string[][] }): s
   updateDisplay();
 };
 
-(window as any).influenceExplorerChangeMode = (mode: 'lighten' | 'multiply' | 'multiply-darken') => {
+(window as any).influenceExplorerChangeMode = (mode: 'lighten' | 'multiply' | 'multiply-darken' | 'blue-glows-red') => {
   currentMode = mode;
   updateDisplay();
 };

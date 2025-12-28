@@ -6,6 +6,7 @@
 import { renderBasicLayeringDemo } from './demos/basic-layering';
 import { renderInfluenceExplorerDemo } from './demos/influence-explorer';
 import { renderGlassPaneDemo } from './demos/glass-pane';
+import { renderLayerEffectsDemo } from './demos/layer-effects';
 import { renderAnimationDemo } from './demos/animation';
 import { renderFlipTransformDemo } from './demos/flip-transform';
 import { renderEdgeDetectionStaticDemo } from './demos/auto-edge';
@@ -16,6 +17,7 @@ const demos = [
   { id: 'basic-layering', title: 'Basic Layering' },
   { id: 'influence-explorer', title: 'Influence Explorer' },
   { id: 'glass-pane', title: 'Glass Pane Effect' },
+  { id: 'layer-effects', title: 'Layer Effects' },
   { id: 'animation', title: 'Animation' },
   { id: 'flip-transform', title: 'Flip & Transform' },
   { id: 'edge-detection-static', title: 'Edge Detection: Static' },
@@ -77,6 +79,8 @@ function selectDemo(id: string) {
       body.innerHTML = renderInfluenceExplorerDemo();
     } else if (id === 'glass-pane') {
       body.innerHTML = renderGlassPaneDemo();
+    } else if (id === 'layer-effects') {
+      body.innerHTML = renderLayerEffectsDemo();
     } else if (id === 'animation') {
       body.innerHTML = renderAnimationDemo();
     } else if (id === 'flip-transform') {

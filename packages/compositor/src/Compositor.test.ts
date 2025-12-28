@@ -1216,8 +1216,10 @@ describe('Compositor', () => {
 
       const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
 
-      // Total transparency: 60 + 50 = 110% => should render as blank
-      expect(output.characters[0][0]).toBe(' ');
+      // Two glass panes with lighten affecting the '#' beneath
+      // Red (#ff0000) lightened 60% then 50% should be very light (close to white)
+      expect(output.characters[0][0]).toBe('#');
+      expect(output.colors[0][0]).not.toBe('#ff0000'); // Should be lightened from red
     });
   });
 
@@ -1925,6 +1927,35 @@ describe('Compositor', () => {
         compositor.setLayerEffect(1, null);
         output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
         expect(output.colors[0][0]).toBe('#000000');
+      });
+
+      test('mixed effect types on different layers', () => {
+        compositor.addObject('bg', {
+          content: [['#', '#']],
+          position: { x: 0, y: 0 },
+          color: '#808080',
+          layer: 0,
+        });
+
+        // Layer 1: lighten toward white
+        compositor.setLayerEffect(1, {
+          color: '#ffffff',
+          type: 'lighten',
+          strength: 0.5,
+        });
+
+        // Layer 2: multiply by blue
+        compositor.setLayerEffect(2, {
+          color: '#0000ff',
+          type: 'multiply',
+          strength: 1.0,
+        });
+
+        const output = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+
+        // Gray lightened 50% toward white: #808080 -> #c0c0c0
+        // Then multiplied by blue: #c0c0c0 * #0000ff = #0000c0
+        expect(output.colors[0][0]).toBe('#0000c0');
       });
     });
   });

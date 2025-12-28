@@ -12,6 +12,8 @@
   },
   "scripts": {
     "build": "vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "bench": "vitest bench --config vitest.bench.config.ts --run",
+    "bench:watch": "vitest bench --config vitest.bench.config.ts"
   }
 }

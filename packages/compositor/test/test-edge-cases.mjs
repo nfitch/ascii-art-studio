@@ -1,4 +1,4 @@
-import { Compositor } from './dist/index.js';
+import { Compositor } from '../dist/index.js';
 
 console.log('Testing edge cases...\n');
 

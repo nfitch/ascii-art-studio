@@ -2013,4 +2013,618 @@ describe('Compositor', () => {
       });
     });
   });
+
+  describe('Color Normalization', () => {
+    test('normalizes uppercase hex colors to lowercase', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#FFFFFF',
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.colors[0][0]).toBe('#ffffff');
+    });
+
+    test('normalizes mixed case hex colors to lowercase', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#AbC123',
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.colors[0][0]).toBe('#abc123');
+    });
+
+    test('normalizes influence colors to lowercase', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#000000',
+        influence: {
+          radius: 1,
+          color: '#FF0000',
+          transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+      // Influence colors are normalized internally
+      expect(output.colors[0][1]).not.toBe('#FF0000'); // Should be processed
+    });
+
+    test('normalizes layer effect colors to lowercase', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#808080',
+      });
+      compositor.setLayerEffect(0, { color: '#00FF00', type: 'lighten', strength: 0.5 });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      // Result should be normalized lowercase
+      const color = output.colors[0][0];
+      expect(color).toBe(color.toLowerCase());
+    });
+  });
+
+  describe('Falloff Types', () => {
+    test('linear falloff decreases steadily', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 3, transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 4, height: 1 });
+      const colors = output.colors[0];
+
+      // Linear falloff should show steady decrease
+      expect(colors[0]).toBe('#ffffff'); // Object
+      expect(colors[1] > colors[2]).toBe(true); // Decreasing
+      expect(colors[2] > colors[3]).toBe(true); // Decreasing
+    });
+
+    test('quadratic falloff is gentler near center', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 5, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 6, height: 1 });
+      expect(output.colors[0][0]).toBe('#ffffff');
+      expect(output.colors[0][5]).toBe('#000000');
+    });
+
+    test('exponential falloff is steeper overall', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 5, transform: { type: 'lighten', strength: 1.0, falloff: 'exponential' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 6, height: 1 });
+      expect(output.colors[0][0]).toBe('#ffffff');
+      // Exponential should leave some influence at edge
+      expect(output.colors[0][5]).not.toBe('#000000');
+    });
+
+    test('cubic falloff is very gentle near center', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 5, transform: { type: 'lighten', strength: 1.0, falloff: 'cubic' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 6, height: 1 });
+      expect(output.colors[0][0]).toBe('#ffffff');
+      expect(output.colors[0][5]).toBe('#000000');
+    });
+
+    test('diagonal distance calculation works correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 3, transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 3, height: 3 });
+      const horizontal = output.colors[0][1];
+      const diagonal = output.colors[1][1];
+
+      // Diagonal should be darker (farther away)
+      expect(diagonal < horizontal).toBe(true);
+    });
+  });
+
+  describe('Layer Effects Stacking', () => {
+    test('multiple layer effects accumulate correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#808080',
+        layer: 2,
+      });
+
+      compositor.setLayerEffect(0, { color: '#ffffff', type: 'lighten', strength: 0.2 });
+      compositor.setLayerEffect(1, { color: '#ffffff', type: 'lighten', strength: 0.3 });
+      compositor.setLayerEffect(2, { color: '#ffffff', type: 'lighten', strength: 0.4 });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+
+      // Should be lighter than original due to 3 stacked effects
+      expect(output.colors[0][0] > '#808080').toBe(true);
+    });
+
+    test('layer effects on background cells', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+
+      compositor.setLayerEffect(0, { color: '#ff0000', type: 'lighten', strength: 0.5 });
+      compositor.setLayerEffect(1, { color: '#00ff00', type: 'lighten', strength: 0.5 });
+
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+
+      // Both effects should apply to background
+      expect(output.colors[0][1]).not.toBe('#000000');
+    });
+
+    test('removing layer effect works correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#808080',
+        layer: 0,
+      });
+
+      compositor.setLayerEffect(0, { color: '#ffffff', type: 'lighten', strength: 0.5 });
+      const withEffect = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+
+      compositor.setLayerEffect(0, null);
+      const withoutEffect = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+
+      expect(withEffect.colors[0][0]).toBe('#c0c0c0');
+      expect(withoutEffect.colors[0][0]).toBe('#808080');
+    });
+
+    test('effects on negative layer numbers work', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#808080',
+        layer: 0,
+      });
+
+      compositor.setLayerEffect(-1, { color: '#ffffff', type: 'lighten', strength: 0.3 });
+      compositor.setLayerEffect(0, { color: '#000000', type: 'darken', strength: 0.3 });
+
+      const output = compositor.render({ x: 0, y: 0, width: 1, height: 1 });
+      expect(output.colors[0][0]).not.toBe('#808080');
+    });
+  });
+
+  describe('Influence Overlaps', () => {
+    test('same-layer influences both affect background', () => {
+      const compositor = new Compositor();
+      compositor.addObject('left', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 3, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
+      });
+      compositor.addObject('right', {
+        content: [['@']],
+        position: { x: 4, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 3, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 5, height: 1 });
+
+      // Position 1 should be influenced by left object
+      expect(output.colors[0][1]).not.toBe('#000000');
+    });
+
+    test('different strength influences overlap', () => {
+      const compositor = new Compositor();
+      compositor.addObject('weak', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 3, transform: { type: 'lighten', strength: 0.2, falloff: 'linear' } },
+      });
+      compositor.addObject('strong', {
+        content: [['@']],
+        position: { x: 6, y: 0 },
+        color: '#ffffff',
+        influence: { radius: 3, transform: { type: 'lighten', strength: 0.8, falloff: 'linear' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 7, height: 1 });
+      // Position near weak object should show weak influence
+      expect(output.colors[0][1]).not.toBe('#000000');
+    });
+
+    test('cross-layer influence works', () => {
+      const compositor = new Compositor();
+      compositor.addObject('bottom', {
+        content: [['#']],
+        position: { x: 0, y: 0 },
+        color: '#ff0000',
+        layer: 0,
+        influence: { radius: 2, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
+      });
+      compositor.addObject('top', {
+        content: [['@']],
+        position: { x: 3, y: 0 },
+        color: '#0000ff',
+        layer: 1,
+        influence: { radius: 2, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 4, height: 1 });
+      expect(output.colors[0][1]).not.toBe('#000000');
+    });
+
+    test('multiply influences work with non-black backgrounds', () => {
+      const compositor = new Compositor();
+      compositor.addObject('bg', {
+        content: [['#', '#', '#', '#', '#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+      compositor.addObject('red', {
+        content: [['R']],
+        position: { x: 1, y: 0 },
+        color: '#ffffff',
+        layer: 1,
+        influence: {
+          radius: 2,
+          color: '#ff0000',
+          transform: { type: 'multiply', strength: 1.0, falloff: 'linear' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 5, height: 1 });
+      // Position 0 should show red multiply influence on white background
+      expect(output.colors[0][0]).not.toBe('#ffffff');
+      expect(output.colors[0][0]).not.toBe('#000000');
+    });
+
+    test('glass pane effects can overlap', () => {
+      const compositor = new Compositor();
+      compositor.addObject('bg', {
+        content: [['#', '#', '#', '#', '#']],
+        position: { x: 0, y: 0 },
+        color: '#ffffff',
+        layer: 0,
+      });
+      compositor.addObject('glass1', {
+        content: [[' ']],
+        position: { x: 1, y: 0 },
+        color: '#ff0000',
+        layer: 1,
+        influence: {
+          radius: 1,
+          color: '#ff0000',
+          transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
+        },
+      });
+      compositor.addObject('glass2', {
+        content: [[' ']],
+        position: { x: 3, y: 0 },
+        color: '#0000ff',
+        layer: 1,
+        influence: {
+          radius: 1,
+          color: '#0000ff',
+          transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
+        },
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 5, height: 1 });
+
+      // Glass position 1 should be tinted red
+      expect(output.colors[0][1]).not.toBe('#ffffff');
+      expect(output.characters[0][1]).toBe('#'); // Background shows through
+    });
+  });
+
+  describe('Flip Operations', () => {
+    test('horizontal flip reverses content correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['A', 'B', 'C']],
+        position: { x: 0, y: 0 },
+      });
+
+      const before = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
+      compositor.flipHorizontal('obj');
+      const after = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
+
+      expect(before.characters[0].join('')).toBe('ABC');
+      expect(after.characters[0].join('')).toBe('CBA');
+    });
+
+    test('vertical flip reverses rows correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['A'], ['B'], ['C']],
+        position: { x: 0, y: 0 },
+      });
+
+      const before = compositor.render({ x: 0, y: 0, width: 1, height: 3 });
+      compositor.flipVertical('obj');
+      const after = compositor.render({ x: 0, y: 0, width: 1, height: 3 });
+
+      expect(before.characters.map(r => r[0]).join('')).toBe('ABC');
+      expect(after.characters.map(r => r[0]).join('')).toBe('CBA');
+    });
+
+    test('double flip works correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [
+          ['1', '2'],
+          ['3', '4'],
+        ],
+        position: { x: 0, y: 0 },
+      });
+
+      compositor.flipHorizontal('obj');
+      compositor.flipVertical('obj');
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+      expect(output.characters[0].join('')).toBe('43');
+      expect(output.characters[1].join('')).toBe('21');
+    });
+
+    test('flip preserves transparency', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#', null, '@']],
+        position: { x: 0, y: 0 },
+      });
+
+      compositor.flipHorizontal('obj');
+      const output = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
+
+      expect(output.characters[0][0]).toBe('@');
+      expect(output.characters[0][1]).toBe(' ');
+      expect(output.characters[0][2]).toBe('#');
+    });
+
+    test('flip toggle returns to original', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['L', 'R']],
+        position: { x: 0, y: 0 },
+      });
+
+      const orig = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+      compositor.flipHorizontal('obj');
+      compositor.flipHorizontal('obj');
+      const toggled = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+
+      expect(orig.characters[0].join('')).toBe(toggled.characters[0].join(''));
+    });
+
+    test('setFlipHorizontal sets specific state', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['A', 'B']],
+        position: { x: 0, y: 0 },
+      });
+
+      compositor.setFlipHorizontal('obj', true);
+      const flipped = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+
+      compositor.setFlipHorizontal('obj', false);
+      const normal = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
+
+      expect(flipped.characters[0].join('')).toBe('BA');
+      expect(normal.characters[0].join('')).toBe('AB');
+    });
+  });
+
+  describe('AutoDetectEdges', () => {
+    test('detects edge spaces and makes them transparent', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [
+          [' ', '#', ' '],
+          ['#', '#', '#'],
+          [' ', '#', ' '],
+        ],
+        position: { x: 0, y: 0 },
+        autoDetectEdges: true,
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 3, height: 3 });
+
+      // Edge spaces should be transparent
+      expect(output.characters[0][0]).toBe(' ');
+      expect(output.characters[0][2]).toBe(' ');
+    });
+
+    test('preserves trapped spaces inside shape', () => {
+      const compositor = new Compositor();
+      compositor.addObject('donut', {
+        content: [
+          [' ', ' ', ' ', ' ', ' '],
+          [' ', '#', '#', '#', ' '],
+          [' ', '#', ' ', '#', ' '],
+          [' ', '#', '#', '#', ' '],
+          [' ', ' ', ' ', ' ', ' '],
+        ],
+        position: { x: 0, y: 0 },
+        autoDetectEdges: true,
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 5, height: 5 });
+
+      // Middle space should be visible (trapped inside)
+      expect(output.characters[2][2]).toBe(' ');
+      expect(output.characters[1][1]).toBe('#');
+    });
+
+    test('all-spaces becomes fully transparent', () => {
+      const compositor = new Compositor();
+      compositor.addObject('invisible', {
+        content: [
+          [' ', ' '],
+          [' ', ' '],
+        ],
+        position: { x: 0, y: 0 },
+        autoDetectEdges: true,
+        color: '#ff0000',
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+      // All cells should be blank
+      expect(output.characters.every(row => row.every(c => c === ' '))).toBe(true);
+    });
+
+    test('no spaces means autoDetect has no effect', () => {
+      const compositor = new Compositor();
+      compositor.addObject('solid', {
+        content: [
+          ['#', '#'],
+          ['#', '#'],
+        ],
+        position: { x: 0, y: 0 },
+        autoDetectEdges: true,
+      });
+
+      const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
+
+      // All cells should have content
+      expect(output.characters.every(row => row.every(c => c === '#'))).toBe(true);
+    });
+  });
+
+  describe('Negative Coordinates', () => {
+    test('object at negative position renders correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: -5, y: -3 },
+      });
+
+      const output = compositor.render({ x: -6, y: -4, width: 3, height: 3 });
+      expect(output.characters[1][1]).toBe('#');
+    });
+
+    test('negative viewport with positive objects shows blanks', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['A']],
+        position: { x: 5, y: 5 },
+      });
+
+      const output = compositor.render({ x: -2, y: -2, width: 3, height: 3 });
+      expect(output.characters.every(row => row.every(c => c === ' '))).toBe(true);
+    });
+
+    test('object spanning origin works correctly', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [
+          ['1', '2'],
+          ['3', '4'],
+        ],
+        position: { x: -1, y: -1 },
+      });
+
+      const output = compositor.render({ x: -1, y: -1, width: 2, height: 2 });
+      expect(output.characters[0].join('')).toBe('12');
+      expect(output.characters[1].join('')).toBe('34');
+    });
+
+    test('canvas bounds include negative coordinates', () => {
+      const compositor = new Compositor();
+      compositor.addObject('neg', {
+        content: [['#']],
+        position: { x: -10, y: -5 },
+      });
+      compositor.addObject('pos', {
+        content: [['@']],
+        position: { x: 10, y: 5 },
+      });
+
+      const bounds = compositor.getCanvasBounds();
+      expect(bounds.minX).toBe(-10);
+      expect(bounds.minY).toBe(-5);
+      expect(bounds.maxX).toBe(10);
+      expect(bounds.maxY).toBe(5);
+    });
+
+    test('moving object to negative coordinates works', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['M']],
+        position: { x: 0, y: 0 },
+      });
+
+      compositor.moveObject('obj', { x: -3, y: -3 });
+      const output = compositor.render({ x: -4, y: -4, width: 2, height: 2 });
+
+      expect(output.characters[1][1]).toBe('M');
+    });
+
+    test('influence at negative coordinates works', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['#']],
+        position: { x: -5, y: 0 },
+        color: '#ff0000',
+        influence: { radius: 2, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
+      });
+
+      const output = compositor.render({ x: -7, y: 0, width: 5, height: 1 });
+
+      // Should see influence gradient
+      expect(output.colors[0].some(c => c !== '#000000')).toBe(true);
+    });
+
+    test('layer effects work with negative viewport', () => {
+      const compositor = new Compositor();
+      compositor.addObject('obj', {
+        content: [['X']],
+        position: { x: -3, y: -3 },
+        color: '#808080',
+        layer: 0,
+      });
+      compositor.setLayerEffect(0, { color: '#ffffff', type: 'lighten', strength: 0.5 });
+
+      const output = compositor.render({ x: -4, y: -4, width: 2, height: 2 });
+      expect(output.colors[1][1]).toBe('#c0c0c0');
+    });
+  });
 });

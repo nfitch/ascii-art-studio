@@ -236,7 +236,7 @@ export class Compositor {
     }
 
     // Apply defaults
-    const color = options.color || '#000000';
+    const color = (options.color || '#000000').toLowerCase();
     const layer = options.layer ?? 0;
 
     // Validate color format (#RRGGBB)
@@ -301,7 +301,7 @@ export class Compositor {
       // Deep clone influence to prevent external mutations
       influence: options.influence ? {
         radius: options.influence.radius,
-        color: options.influence.color,
+        color: options.influence.color ? options.influence.color.toLowerCase() : undefined,
         transform: {
           type: options.influence.transform.type,
           strength: options.influence.transform.strength,
@@ -549,7 +549,7 @@ export class Compositor {
 
     // Store deep clone to prevent external mutations
     this.layerEffects.set(layer, {
-      color: effect.color,
+      color: effect.color.toLowerCase(),
       type: effect.type,
       strength: effect.strength,
       ...(effect.darkenFactor !== undefined && { darkenFactor: effect.darkenFactor }),

@@ -3,6 +3,7 @@
  * Interactive showcase and playground
  */
 
+import { renderDemoDemo } from './demos/demo';
 import { renderBasicLayeringDemo } from './demos/basic-layering';
 import { renderInfluenceExplorerDemo } from './demos/influence-explorer';
 import { renderGlassPaneDemo } from './demos/glass-pane';
@@ -14,6 +15,7 @@ import { renderEdgeDetectionDynamicDemo } from './demos/edge-detection-dynamic';
 
 // Demo registry
 const demos = [
+  { id: 'demo', title: 'Demo' },
   { id: 'basic-layering', title: 'Basic Layering' },
   { id: 'influence-explorer', title: 'Influence Explorer' },
   { id: 'glass-pane', title: 'Glass Pane Effect' },
@@ -73,7 +75,9 @@ function selectDemo(id: string) {
 
   if (body) {
     // Route to specific demo implementations
-    if (id === 'basic-layering') {
+    if (id === 'demo') {
+      body.innerHTML = renderDemoDemo();
+    } else if (id === 'basic-layering') {
       body.innerHTML = renderBasicLayeringDemo();
     } else if (id === 'influence-explorer') {
       body.innerHTML = renderInfluenceExplorerDemo();

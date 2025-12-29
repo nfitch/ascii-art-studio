@@ -1,10 +1,12 @@
 # ASCII Art Studio
 
-Modular TypeScript libraries for creating, manipulating, and animating ASCII art in web browsers.
+Modular TypeScript libraries for creating, manipulating, and animating ASCII* art in web browsers.
 
 https://nfitch.github.io/ascii-art-studio/
 
 Disclaimer: All code writen by https://claude.ai/ .
+
+* Supports unicode at least.
 
 ## Project Structure
 

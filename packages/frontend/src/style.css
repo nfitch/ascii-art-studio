@@ -218,3 +218,28 @@ input[type="radio"] {
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* Demo-specific content body */
+#content-body:has(.demo-container) {
+  padding: 0;
+}
+
+/* Full Screen Mode */
+body.fullscreen header {
+  display: none;
+}
+
+body.fullscreen #sidebar {
+  display: none;
+}
+
+body.fullscreen #content {
+  width: 100vw;
+  height: 100vh;
+}
+
+body.fullscreen #content-body {
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+}

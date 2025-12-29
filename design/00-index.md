@@ -7,6 +7,9 @@
 - [01-project-overview.md](01-project-overview.md) - Project overview and problem statement
 - [02-requirements.md](02-requirements.md) - Requirements and scope
 
+## Component Specifications
+- [demo-component-spec.md](demo-component-spec.md) - Primary Demo component with full-screen, zoom, scroll, and animation
+
 ## Phase-Specific Design Documents
 
 ### Phase 1: Compositor Module

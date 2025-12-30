@@ -15,7 +15,6 @@ import { renderEdgeDetectionDynamicDemo } from './demos/edge-detection-dynamic';
 
 // Demo registry
 const demos = [
-  { id: 'demo', title: 'Demo' },
   { id: 'basic-layering', title: 'Basic Layering' },
   { id: 'influence-explorer', title: 'Influence Explorer' },
   { id: 'glass-pane', title: 'Glass Pane Effect' },

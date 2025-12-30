@@ -676,6 +676,12 @@ export class Compositor {
     // Get layers sorted ascending (lower layers first, higher layers on top)
     const layers = this.getSortedLayers();
 
+    // Cache objects per layer to avoid repeated lookups (performance optimization)
+    const layerObjectsCache = new Map<number, InternalObject[]>();
+    for (const layer of layers) {
+      layerObjectsCache.set(layer, this.getObjectsOnLayer(layer));
+    }
+
     // Render each cell in the viewport
     for (let y = 0; y < viewport.height; y++) {
       const charRow: string[] = [];
@@ -687,7 +693,7 @@ export class Compositor {
         const worldY = viewport.y + y;
 
         // Render this cell by traversing layers top-down
-        const { char, color } = this.renderCell(worldX, worldY, layers);
+        const { char, color } = this.renderCell(worldX, worldY, layers, layerObjectsCache);
         charRow.push(char);
         colorRow.push(color);
       }
@@ -716,9 +722,10 @@ export class Compositor {
    * @param x - World X coordinate
    * @param y - World Y coordinate
    * @param layers - Sorted layer numbers (ascending)
+   * @param layerObjectsCache - Pre-computed map of layer -> objects (performance optimization)
    * @returns Rendered character and color
    */
-  private renderCell(x: number, y: number, layers: number[]): { char: string; color: string } {
+  private renderCell(x: number, y: number, layers: number[], layerObjectsCache: Map<number, InternalObject[]>): { char: string; color: string } {
     // Working color accumulates influence transforms (affects background view from below)
     let workingColor = '#000000';
     // Collect all transforms (layer effects and influences) to apply to final content color
@@ -744,7 +751,7 @@ export class Compositor {
         });
       }
 
-      const objectsOnLayer = this.getObjectsOnLayer(layer);
+      const objectsOnLayer = layerObjectsCache.get(layer) || [];
 
       // First-added-wins for same-layer overlaps
       for (const obj of objectsOnLayer) {

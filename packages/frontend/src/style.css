@@ -121,6 +121,7 @@ header h1 {
 /* Demo Container */
 .demo-container {
   max-width: 800px;
+  padding: 2rem;
 }
 
 .demo-description {
@@ -242,4 +243,9 @@ body.fullscreen #content-body {
   padding: 0;
   height: 100vh;
   overflow: hidden;
+}
+
+body.fullscreen .demo-container {
+  padding: 0;
+  max-width: none;
 }

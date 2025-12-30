@@ -8,10 +8,10 @@ This document defines the complete TypeScript API for the ASCII Compositor modul
 
 ```typescript
 export { Compositor };
-export type { AddObjectOptions, CompositorObject, RenderOutput };
+export type { AddObjectOptions, InitialObject, CompositorObject, RenderOutput, LayerEffect, Influence };
 ```
 
-The Compositor class and essential TypeScript interfaces are exported for public use. Internal types (Cell, Position, Influence, Bounds, Viewport, InternalObject) remain private.
+The Compositor class and essential TypeScript interfaces are exported for public use. Internal types (Cell, Position, Bounds, Viewport, InternalObject) remain private.
 
 ## Core API
 
@@ -19,7 +19,7 @@ The Compositor class and essential TypeScript interfaces are exported for public
 
 ```typescript
 class Compositor {
-  constructor(initialObjects?: CompositorObject[], defaultViewport?: Viewport);
+  constructor(initialObjects?: InitialObject[], defaultViewport?: Viewport);
 
   // Object management
   addObject(id: string, options: AddObjectOptions): void;
@@ -89,6 +89,10 @@ interface AddObjectOptions {
   layer?: number;  // Integer, unlimited range (default: 0)
   influence?: Influence;  // Optional (default: none)
   autoDetectEdges?: boolean;  // Use flood fill for transparency (default: false)
+}
+
+interface InitialObject extends AddObjectOptions {
+  id: string;  // Unique identifier for the object
 }
 
 interface Viewport {

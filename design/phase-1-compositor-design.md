@@ -132,7 +132,7 @@ null, 25%, 50%, 50%, 50%, 25%
 - Essential for visual richness in ASCII art
 
 ### 4. Transform Accumulation
-**Decision:** Top-down rendering with additive transparency accumulation.
+**Decision:** Top-down rendering with cumulative color transformations.
 
 **Rendering algorithm:**
 ```javascript
@@ -247,10 +247,12 @@ type Cell = string | null;  // string = character, null = transparent
 
 interface Influence {
   radius: number;
+  color?: string;  // Override color for influence (hex #RRGGBB). If not specified, uses object's color
   transform: {
-    type: 'lighten' | 'darken';  // Initial implementation only (multiply TBD)
+    type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
     strength: number;  // 0.0-1.0, max effect at distance 0
     falloff: 'linear' | 'quadratic' | 'exponential' | 'cubic';
+    darkenFactor?: number;  // 0.0-1.0, only for multiply-darken (default: 0.8)
   };
 }
 
@@ -343,17 +345,24 @@ function generateTransparencyMask(content: Cell[][]): Cell[][] {
 }
 
 function floodFill(mask: Cell[][], x: number, y: number, visited: Set<string>) {
-  if (out of bounds || visited.has(`${x},${y}`)) return;
-  if (mask[y][x] !== ' ') return;  // not a space
+  // Iterative implementation using queue to avoid stack overflow on large regions
+  const queue = [{ x, y }];
 
-  visited.add(`${x},${y}`);
-  mask[y][x] = null;  // mark as transparent
+  while (queue.length > 0) {
+    const { x, y } = queue.shift();
 
-  // Recursively fill adjacent cells (iterative version used to avoid stack overflow)
-  floodFill(mask, x+1, y, visited);
-  floodFill(mask, x-1, y, visited);
-  floodFill(mask, x, y+1, visited);
-  floodFill(mask, x, y-1, visited);
+    if (out of bounds || visited.has(`${x},${y}`)) continue;
+    if (mask[y][x] !== ' ') continue;  // not a space
+
+    visited.add(`${x},${y}`);
+    mask[y][x] = null;  // mark as transparent
+
+    // Add adjacent cells to queue (4-way connectivity)
+    queue.push({ x: x+1, y });
+    queue.push({ x: x-1, y });
+    queue.push({ x, y: y+1 });
+    queue.push({ x, y: y-1 });
+  }
 }
 ```
 
@@ -460,13 +469,15 @@ content: [['#', ' ', '#']]   // Middle cell blocks lower layer, renders as space
 
 **Implemented behavior:**
 - **Space characters WITH influence** act as transparent (glass pane effect)
-  - Lower layers show through (character remains visible)
+  - The space itself is NOT rendered (transparent)
+  - Lower layers show through (characters from below remain visible)
   - Influence transform modifies the color of content below
-  - Enables atmospheric effects and tinted regions (colored fog, light beams)
+  - Enables atmospheric effects and tinted regions (colored fog, light beams, glass panes)
 - **Space characters WITHOUT influence** render as opaque spaces
-  - Block lower layers completely (character and color)
+  - The space IS rendered as an opaque space character
+  - Block lower layers completely (both character and color)
   - Display as space character with the object's color
-  - Same as solid content, just renders space instead of symbol
+  - Same as solid content, just renders space instead of a symbol
 
 ### Transform Type Semantics
 

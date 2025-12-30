@@ -85,6 +85,15 @@ export interface AddObjectOptions {
 }
 
 /**
+ * Object specification for constructor initialization.
+ * Same as AddObjectOptions but includes required id field.
+ */
+export interface InitialObject extends AddObjectOptions {
+  /** Unique identifier for the object */
+  id: string;
+}
+
+/**
  * Public view of a compositor object.
  * All fields are deep-cloned to prevent external mutations from corrupting internal state.
  */
@@ -193,23 +202,18 @@ export class Compositor {
    * @throws {Error} If any initial object is missing required fields (id, content, position)
    * @throws {Error} If any initial object fails validation (see addObject errors)
    */
-  constructor(initialObjects?: Partial<CompositorObject>[], defaultViewport?: Viewport) {
+  constructor(initialObjects?: InitialObject[], defaultViewport?: Viewport) {
     this.defaultViewport = defaultViewport;
 
     if (initialObjects) {
       for (const obj of initialObjects) {
-        // Validate required fields
+        // Validate required fields before destructuring
         if (!obj.id || !obj.content || !obj.position) {
           throw new Error('Invalid initial object: missing required fields (id, content, position)');
         }
         // Add object - this validates and processes the object
-        this.addObject(obj.id, {
-          content: obj.content,
-          position: obj.position,
-          color: obj.color,
-          layer: obj.layer,
-          influence: obj.influence,
-        });
+        const { id, ...options } = obj;
+        this.addObject(id, options);
       }
     }
   }
@@ -1105,7 +1109,7 @@ export class Compositor {
   }
 
   /**
-   * Recursive flood fill implementation.
+   * Iterative flood fill implementation using queue to avoid stack overflow.
    *
    * Marks all spaces reachable from (x, y) as transparent (null).
    * Stops at non-space characters.
@@ -1114,7 +1118,6 @@ export class Compositor {
     const height = content.length;
     const width = content[0].length;
 
-    // Use iterative approach with queue to avoid stack overflow on large regions
     const queue: Array<{ x: number; y: number }> = [{ x, y }];
 
     while (queue.length > 0) {

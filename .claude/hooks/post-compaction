@@ -1,0 +1,47 @@
+#!/bin/bash
+# Post-Compaction Hook Template
+# This hook displays critical reminders after conversation compaction
+#
+# Installation:
+# 1. Copy this file to .claude/hooks/post-compaction in your project
+# 2. Make it executable: chmod +x .claude/hooks/post-compaction
+# 3. Create .claude/current-user file with your identifier
+# 4. Ensure working-styles/{user}/reminders.md exists
+
+echo ""
+echo "=========================================="
+echo "CRITICAL REMINDERS AFTER COMPACTION"
+echo "=========================================="
+echo ""
+
+# Determine current user from .claude/current-user file
+CURRENT_USER=""
+if [ -f ".claude/current-user" ]; then
+    CURRENT_USER=$(cat .claude/current-user | tr -d '\n\r')
+fi
+
+# Display user's personal working style reminders if available
+if [ -n "$CURRENT_USER" ] && [ -f "working-styles/$CURRENT_USER/reminders.md" ]; then
+    echo "--- $CURRENT_USER WORKING STYLE REMINDERS ---"
+    echo ""
+    cat "working-styles/$CURRENT_USER/reminders.md"
+    echo ""
+else
+    echo "--- NO USER-SPECIFIC REMINDERS ---"
+    echo "To enable: Create .claude/current-user file with your identifier"
+    echo "           Then create working-styles/{identifier}/reminders.md"
+    echo ""
+fi
+
+# Display project-specific reminders (optional)
+if [ -f "design/project-reminders.md" ]; then
+    echo "--- PROJECT REMINDERS ---"
+    echo ""
+    cat design/project-reminders.md
+    echo ""
+fi
+
+echo "=========================================="
+echo "END OF REMINDERS"
+echo "=========================================="
+echo ""

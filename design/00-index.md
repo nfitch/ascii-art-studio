@@ -15,6 +15,7 @@
 ### Phase 1: Compositor Module
 - [phase-1-compositor-design.md](phase-1-compositor-design.md) - Design decisions and architecture
 - [phase-1-compositor-api.md](phase-1-compositor-api.md) - TypeScript API specification
+- [performance-optimization.md](performance-optimization.md) - Performance optimization analysis and results
 
 ### Future Phases
 - Phase 2: Animator module

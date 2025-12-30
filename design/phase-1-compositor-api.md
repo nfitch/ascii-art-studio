@@ -696,3 +696,4 @@ interface InternalObject {
 ## Related Documents
 
 - [phase-1-compositor-design.md](phase-1-compositor-design.md) - Design decisions and architecture
+- [performance-optimization.md](performance-optimization.md) - Performance optimization analysis and results

@@ -795,14 +795,7 @@ export class Compositor {
                 // Non-space character - apply all transforms to object color
                 let finalColor = obj.color;
                 for (let j = transformsToApply.length - 1; j >= 0; j--) {
-                  const transform = transformsToApply[j];
-                  if (transform.type === 'lighten' || transform.type === 'darken') {
-                    finalColor = this.interpolateColor(finalColor, transform.targetColor, transform.strength);
-                  } else if (transform.type === 'multiply') {
-                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply', undefined);
-                  } else if (transform.type === 'multiply-darken') {
-                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply-darken', transform.darkenFactor);
-                  }
+                  finalColor = this.applyTransform(finalColor, transformsToApply[j]);
                 }
                 return { char: cell, color: finalColor };
               } else if (cell === ' ' && obj.influence) {
@@ -814,34 +807,22 @@ export class Compositor {
                   (obj.influence.color ?? obj.color);
 
                 // Collect for later application to content
-                transformsToApply.push({
+                const transform = {
                   targetColor,
                   type: obj.influence.transform.type,
                   strength,
                   darkenFactor: obj.influence.transform.darkenFactor,
-                });
+                };
+                transformsToApply.push(transform);
 
-                // Also apply to working color for background
-                if (obj.influence.transform.type === 'lighten' || obj.influence.transform.type === 'darken') {
-                  workingColor = this.interpolateColor(workingColor, targetColor, strength);
-                } else if (obj.influence.transform.type === 'multiply') {
-                  workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply', undefined);
-                } else if (obj.influence.transform.type === 'multiply-darken') {
-                  workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply-darken', obj.influence.transform.darkenFactor);
-                }
+                // Also apply to working color for background (inline for performance)
+                workingColor = this.applyTransform(workingColor, transform);
                 // Continue to next layer (don't return)
               } else if (cell !== null) {
                 // Space without influence - apply all transforms to object color
                 let finalColor = obj.color;
                 for (let j = transformsToApply.length - 1; j >= 0; j--) {
-                  const transform = transformsToApply[j];
-                  if (transform.type === 'lighten' || transform.type === 'darken') {
-                    finalColor = this.interpolateColor(finalColor, transform.targetColor, transform.strength);
-                  } else if (transform.type === 'multiply') {
-                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply', undefined);
-                  } else if (transform.type === 'multiply-darken') {
-                    finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply-darken', transform.darkenFactor);
-                  }
+                  finalColor = this.applyTransform(finalColor, transformsToApply[j]);
                 }
                 return { char: cell, color: finalColor };
               }
@@ -858,21 +839,16 @@ export class Compositor {
               (obj.influence!.color ?? obj.color);
 
             // Collect for later application to content
-            transformsToApply.push({
+            const transform = {
               targetColor,
               type: obj.influence!.transform.type,
               strength,
               darkenFactor: obj.influence!.transform.darkenFactor,
-            });
+            };
+            transformsToApply.push(transform);
 
-            // Also apply to working color for background
-            if (obj.influence!.transform.type === 'lighten' || obj.influence!.transform.type === 'darken') {
-              workingColor = this.interpolateColor(workingColor, targetColor, strength);
-            } else if (obj.influence!.transform.type === 'multiply') {
-              workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply', undefined);
-            } else if (obj.influence!.transform.type === 'multiply-darken') {
-              workingColor = this.applyLayerMultiply(workingColor, targetColor, strength, 'multiply-darken', obj.influence!.transform.darkenFactor);
-            }
+            // Also apply to working color for background (inline for performance)
+            workingColor = this.applyTransform(workingColor, transform);
           }
         }
       }
@@ -881,14 +857,7 @@ export class Compositor {
     // No content found at this position - apply all transforms to working color
     let finalColor = workingColor;
     for (let j = transformsToApply.length - 1; j >= 0; j--) {
-      const transform = transformsToApply[j];
-      if (transform.type === 'lighten' || transform.type === 'darken') {
-        finalColor = this.interpolateColor(finalColor, transform.targetColor, transform.strength);
-      } else if (transform.type === 'multiply') {
-        finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply', undefined);
-      } else if (transform.type === 'multiply-darken') {
-        finalColor = this.applyLayerMultiply(finalColor, transform.targetColor, transform.strength, 'multiply-darken', transform.darkenFactor);
-      }
+      finalColor = this.applyTransform(finalColor, transformsToApply[j]);
     }
     return { char: ' ', color: finalColor };
   }
@@ -898,6 +867,68 @@ export class Compositor {
    */
   private toHex(value: number): string {
     return value.toString(16).padStart(2, '0');
+  }
+
+  /**
+   * Applies a color transform with inlined color math for performance.
+   * Combines interpolation and multiply logic in a single function to enable JIT optimization.
+   *
+   * @param baseColor - Starting color in #RRGGBB format
+   * @param transform - Transform to apply
+   * @returns Transformed color in #RRGGBB format
+   */
+  private applyTransform(
+    baseColor: string,
+    transform: {
+      targetColor: string;
+      type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
+      strength: number;
+      darkenFactor?: number;
+    }
+  ): string {
+    // Parse base color (inline to avoid function call overhead)
+    const r1 = parseInt(baseColor.slice(1, 3), 16);
+    const g1 = parseInt(baseColor.slice(3, 5), 16);
+    const b1 = parseInt(baseColor.slice(5, 7), 16);
+
+    // Parse target color
+    const r2 = parseInt(transform.targetColor.slice(1, 3), 16);
+    const g2 = parseInt(transform.targetColor.slice(3, 5), 16);
+    const b2 = parseInt(transform.targetColor.slice(5, 7), 16);
+
+    let finalR: number;
+    let finalG: number;
+    let finalB: number;
+
+    if (transform.type === 'lighten' || transform.type === 'darken') {
+      // Interpolation (inline)
+      const t = Math.max(0, Math.min(1, transform.strength));
+      finalR = Math.round(r1 + (r2 - r1) * t);
+      finalG = Math.round(g1 + (g2 - g1) * t);
+      finalB = Math.round(b1 + (b2 - b1) * t);
+    } else {
+      // Multiply (inline)
+      let mr2 = r2;
+      let mg2 = g2;
+      let mb2 = b2;
+
+      if (transform.type === 'multiply-darken') {
+        const factor = transform.darkenFactor || 0.8;
+        mr2 = Math.round(r2 * factor);
+        mg2 = Math.round(g2 * factor);
+        mb2 = Math.round(b2 * factor);
+      }
+
+      const r = Math.round((r1 / 255) * (mr2 / 255) * 255);
+      const g = Math.round((g1 / 255) * (mg2 / 255) * 255);
+      const b = Math.round((b1 / 255) * (mb2 / 255) * 255);
+
+      finalR = Math.round(r1 + (r - r1) * transform.strength);
+      finalG = Math.round(g1 + (g - g1) * transform.strength);
+      finalB = Math.round(b1 + (b - b1) * transform.strength);
+    }
+
+    return `#${this.toHex(finalR)}${this.toHex(finalG)}${this.toHex(finalB)}`;
   }
 
   /**

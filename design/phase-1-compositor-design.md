@@ -439,10 +439,18 @@ function calculateFalloff(distance: number, radius: number, strength: number, fa
 
 ### Performance Optimizations
 
-1. **Viewport caching** - Cache entire rendered viewport (implemented)
-2. **Spatial indexing** - Consider quadtree or grid-based indexing for large scenes
-3. **Layer culling** - Skip layers completely occluded by higher layers
-4. **Viewport culling** - Don't process objects outside viewport
+**Implemented optimizations:**
+1. **Viewport caching** - Cache entire rendered viewport, reuse when scene unchanged
+2. **Layer object caching** - Cache getObjectsOnLayer() results across cells in single render (2x speedup on complex scenes)
+3. **Inline color math** - Combined transform functions to enable JIT optimization
+
+See [performance-optimization.md](performance-optimization.md) for detailed analysis and benchmark results.
+
+**Potential future optimizations:**
+1. **Spatial indexing** - Quadtree or grid-based indexing for very large object counts
+2. **Layer culling** - Skip layers completely occluded by higher layers
+3. **Typed arrays** - Use Uint8Array for RGB color calculations
+4. **SIMD operations** - Batch color transformations
 
 ### Memory Management
 
@@ -532,6 +540,7 @@ Potential enhancements for future consideration:
 ## Related Documents
 
 - [phase-1-compositor-api.md](phase-1-compositor-api.md) - TypeScript API specification
+- [performance-optimization.md](performance-optimization.md) - Performance optimization analysis and results
 
 ## Next Steps
 

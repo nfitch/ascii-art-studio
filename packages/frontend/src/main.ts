@@ -67,9 +67,6 @@ function selectDemo(id: string) {
   currentDemo = id;
   renderNav();
 
-  const demo = demos.find((d) => d.id === id);
-  if (!demo) return;
-
   const body = document.getElementById('content-body');
 
   if (body) {
@@ -94,29 +91,32 @@ function selectDemo(id: string) {
       body.innerHTML = renderEdgeDetectionDynamicDemo();
     } else {
       // Placeholder for other demos
-      body.innerHTML = `
-        <div class="demo-container">
-          <h2>${demo.title}</h2>
+      const demo = demos.find((d) => d.id === id);
+      if (demo) {
+        body.innerHTML = `
+          <div class="demo-container">
+            <h2>${demo.title}</h2>
 
-          <div class="demo-description">
-            Demo: ${demo.title}
-          </div>
-
-          <div class="demo-controls">
-            <div class="control-group">
-              <button>Button 1</button>
-              <button>Button 2</button>
+            <div class="demo-description">
+              Demo: ${demo.title}
             </div>
-          </div>
 
-          <div class="demo-output">
+            <div class="demo-controls">
+              <div class="control-group">
+                <button>Button 1</button>
+                <button>Button 2</button>
+              </div>
+            </div>
+
+            <div class="demo-output">
 Demo output will go here...
 
 ####
 ####
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      }
     }
   }
 }

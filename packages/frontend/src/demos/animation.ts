@@ -285,7 +285,7 @@ function updateCompositor() {
       };
     }
 
-    compositor.addObject(obj.id, options);
+    compositor.addObject(new AsciiObject({ id: obj.id, ...options }));
   });
 }
 

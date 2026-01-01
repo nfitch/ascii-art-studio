@@ -120,14 +120,14 @@ function renderOutput(output: { characters: string[][]; colors: string[][] }): s
   const x = Math.floor(Math.random() * (40 - width));
   const y = Math.floor(Math.random() * (15 - height));
 
-  compositor.addObject(id, {
+  compositor.addObject(new AsciiObject({ id,
     content: Array(height)
       .fill(null)
       .map(() => Array(width).fill(char)),
     position: { x, y },
     color,
     layer: newLayer,
-  });
+  }));
 
   updateDisplay();
 };

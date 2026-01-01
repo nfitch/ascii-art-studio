@@ -136,7 +136,7 @@ function updateCompositor() {
     const char = obj.influenceRadius.toString();
     const content = generateContent(char, obj.size, obj.shape);
 
-    compositor.addObject(obj.id, {
+    compositor.addObject(new AsciiObject({ id: obj.id,
       content,
       position: { x: Math.round(obj.x), y: Math.round(obj.y) },
       color: '#0000ff',
@@ -149,7 +149,7 @@ function updateCompositor() {
           falloff: 'quadratic',
         },
       } : undefined,
-    });
+    }));
   });
 }
 
@@ -329,12 +329,12 @@ export function renderDemoDemo(): string {
   });
 
   // Add boundary box at layer -1
-  compositor.addObject('boundary', {
+  compositor.addObject(new AsciiObject({ id: 'boundary',
     content: generateBoundaryBox(WORLD_WIDTH, WORLD_HEIGHT),
     position: { x: 0, y: 0 },
     color: '#000000',
     layer: -1,
-  });
+  }));
 
   // Create 5 layers with 5 objects each (25 total)
   // Apply lighten effects to lower layers to fade them toward white

@@ -3,7 +3,7 @@
  * Demonstrates layer-based rendering with compositor
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 let compositor: Compositor;
 let layers: { id: string; layer: number; char: string; color: string }[] = [];
@@ -21,32 +21,32 @@ export function renderBasicLayeringDemo(): string {
   ];
 
   // Add objects to compositor
-  compositor.addObject('bg', {
+  compositor.addObject(new AsciiObject({ id: 'bg',
     content: Array(10)
       .fill(null)
       .map(() => Array(30).fill('.')),
     position: { x: 5, y: 2 },
     color: '#808080',
     layer: 0,
-  });
+  }));
 
-  compositor.addObject('mid', {
+  compositor.addObject(new AsciiObject({ id: 'mid',
     content: Array(6)
       .fill(null)
       .map(() => Array(20).fill('#')),
     position: { x: 10, y: 4 },
     color: '#0000ff',
     layer: 1,
-  });
+  }));
 
-  compositor.addObject('top', {
+  compositor.addObject(new AsciiObject({ id: 'top',
     content: Array(3)
       .fill(null)
       .map(() => Array(10).fill('@')),
     position: { x: 15, y: 6 },
     color: '#ff0000',
     layer: 2,
-  });
+  }));
 
   nextId = 3;
 

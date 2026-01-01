@@ -3,40 +3,15 @@
  *
  * A stateful scene manager for compositing ASCII art objects with proper layering,
  * transparency, and proximity-based influence effects. Optimized for animation
- * performance through viewport caching and dirty region tracking.
+ * performance through viewport caching and object-level dirty tracking.
  *
  * @module @ascii-art-studio/compositor
  */
 
-/** Represents a single cell in the ASCII grid. null = transparent, string = visible character */
-type Cell = string | null;
+import { AsciiObject, type Influence, type Bounds } from './AsciiObject';
 
-/** 2D position in canvas coordinates */
-interface Position {
-  x: number;
-  y: number;
-}
-
-/**
- * Proximity-based influence configuration.
- * Objects emit gradients that affect the colors of lower layers based on distance.
- */
-export interface Influence {
-  /** Influence radius in cells (must be positive integer) */
-  radius: number;
-  /** Override color for influence (hex #RRGGBB). If not specified, uses object's color. */
-  color?: string;
-  transform: {
-    /** Transform type: 'lighten' (toward white), 'darken' (toward black), 'multiply' (color multiplication), 'multiply-darken' (color multiplication + darkening) */
-    type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
-    /** Maximum effect strength at distance 0 (0.0 to 1.0) */
-    strength: number;
-    /** How influence decreases with distance */
-    falloff: 'linear' | 'quadratic' | 'exponential' | 'cubic';
-    /** Darken factor for 'multiply-darken' type (0.0 to 1.0, default 0.8) */
-    darkenFactor?: number;
-  };
-}
+// Re-export types for public API
+export { AsciiObject, type Influence };
 
 /**
  * Uniform color effect applied to an entire layer.
@@ -52,70 +27,6 @@ export interface LayerEffect {
   strength: number;
   /** Darken factor for multiply-darken (0.0 to 1.0, default 0.8) */
   darkenFactor?: number;
-}
-
-/** Axis-aligned bounding box */
-interface Bounds {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
-/**
- * Options for adding an object to the compositor.
- * Content can be provided in three equivalent formats:
- * 1. Cell matrix: [['#', '#'], ['#', null]]
- * 2. String array: ['##', '# ']
- * 3. Newline string: '##\n# '
- */
-export interface AddObjectOptions {
-  /** Object content (null = transparent, ' ' = opaque space, other = visible char) */
-  content: Cell[][] | string[] | string;
-  /** Canvas position where object's (0,0) origin is placed */
-  position: Position;
-  /** Hex color in #RRGGBB format (default: #000000) */
-  color?: string;
-  /** Layer number - higher layers render on top (default: 0) */
-  layer?: number;
-  /** Optional proximity-based influence effect */
-  influence?: Influence;
-  /** Use flood fill to auto-detect transparent edges (default: false) */
-  autoDetectEdges?: boolean;
-}
-
-/**
- * Object specification for constructor initialization.
- * Same as AddObjectOptions but includes required id field.
- */
-export interface InitialObject extends AddObjectOptions {
-  /** Unique identifier for the object */
-  id: string;
-}
-
-/**
- * Public view of a compositor object.
- * All fields are deep-cloned to prevent external mutations from corrupting internal state.
- */
-export interface CompositorObject {
-  /** Unique identifier */
-  id: string;
-  /** Normalized content as Cell[][] (deep clone) */
-  content: Cell[][];
-  /** Current position (clone) */
-  position: Position;
-  /** Layer number */
-  layer: number;
-  /** Hex color in #RRGGBB format */
-  color: string;
-  /** Influence configuration (deep clone if present) */
-  influence?: Influence;
-  /** True if object is flipped horizontally */
-  flipHorizontal: boolean;
-  /** True if object is flipped vertically */
-  flipVertical: boolean;
-  /** Cached bounding box including influence radius */
-  bounds: Bounds;
 }
 
 /** Camera viewport defining the visible region */
@@ -135,16 +46,6 @@ export interface RenderOutput {
   characters: string[][];
   /** 2D grid of hex colors [y][x] (same dimensions as characters) */
   colors: string[][];
-}
-
-/**
- * Internal object representation with pre-computed influence mask.
- * The influence mask extends beyond content bounds by the influence radius.
- * Values: 100 = opaque content, 0-99 = influence gradient, null = no influence.
- */
-interface InternalObject extends CompositorObject {
-  /** Pre-computed influence mask (regenerated on flip) */
-  influenceMask: (number | null)[][];
 }
 
 /**
@@ -175,7 +76,7 @@ interface InternalObject extends CompositorObject {
  */
 export class Compositor {
   /** Scene objects stored by ID */
-  private objects: Map<string, InternalObject> = new Map();
+  private objects: Map<string, AsciiObject> = new Map();
 
   /** Layer effects stored by layer number */
   private layerEffects: Map<number, LayerEffect> = new Map();
@@ -195,132 +96,36 @@ export class Compositor {
   /**
    * Creates a new compositor with optional initial objects and default viewport.
    *
-   * @param initialObjects - Optional array of partial objects to add at construction.
-   *                        Only id, content, and position are required; other fields
-   *                        are generated automatically.
+   * @param initialObjects - Optional array of AsciiObject instances to add at construction
    * @param defaultViewport - Optional default viewport for render() calls
-   * @throws {Error} If any initial object is missing required fields (id, content, position)
-   * @throws {Error} If any initial object fails validation (see addObject errors)
+   * @throws {Error} If duplicate object IDs are provided
    */
-  constructor(initialObjects?: InitialObject[], defaultViewport?: Viewport) {
+  constructor(initialObjects?: AsciiObject[], defaultViewport?: Viewport) {
     this.defaultViewport = defaultViewport;
 
     if (initialObjects) {
       for (const obj of initialObjects) {
-        // Validate required fields before destructuring
-        if (!obj.id || !obj.content || !obj.position) {
-          throw new Error('Invalid initial object: missing required fields (id, content, position)');
-        }
-        // Add object - this validates and processes the object
-        const { id, ...options } = obj;
-        this.addObject(id, options);
+        this.addObject(obj);
       }
     }
   }
 
   /**
-   * Adds a new object to the scene.
+   * Adds an AsciiObject to the scene.
    *
-   * The object is validated, normalized, and stored with a pre-computed influence mask.
-   * The affected region is marked dirty to invalidate the render cache.
+   * The object's current bounds are marked dirty to invalidate the render cache.
    *
-   * @param id - Unique identifier for the object
-   * @param options - Object configuration
+   * @param obj - AsciiObject instance to add
    * @throws {Error} If object ID already exists
-   * @throws {Error} If content is empty or has unequal row lengths
-   * @throws {Error} If color is not valid #RRGGBB format
-   * @throws {Error} If layer is not an integer
-   * @throws {Error} If influence radius is not a positive integer
-   * @throws {Error} If influence strength is not between 0.0 and 1.0
    */
-  addObject(id: string, options: AddObjectOptions): void {
+  addObject(obj: AsciiObject): void {
     // Check for duplicate ID
-    if (this.objects.has(id)) {
-      throw new Error(`Object with id '${id}' already exists`);
+    if (this.objects.has(obj.id)) {
+      throw new Error(`Object with id '${obj.id}' already exists`);
     }
 
-    // Apply defaults
-    const color = (options.color || '#000000').toLowerCase();
-    const layer = options.layer ?? 0;
-
-    // Validate color format (#RRGGBB)
-    if (!this.isValidColor(color)) {
-      throw new Error('Invalid color format: must be #RRGGBB');
-    }
-
-    // Validate layer is an integer
-    if (!Number.isInteger(layer)) {
-      throw new Error('Layer must be an integer');
-    }
-
-    // Normalize content to Cell[][] format
-    let content = this.normalizeContent(options.content);
-
-    // Validate content is non-empty
-    if (content.length === 0 || content[0].length === 0) {
-      throw new Error('Content must be non-empty');
-    }
-
-    // Auto-detect transparent edges using flood fill if requested
-    if (options.autoDetectEdges) {
-      content = this.autoDetectEdges(content);
-    }
-
-    // Validate influence configuration
-    if (options.influence) {
-      if (options.influence.radius <= 0 || !Number.isInteger(options.influence.radius)) {
-        throw new Error('Influence radius must be positive integer');
-      }
-      if (options.influence.transform.strength < 0 || options.influence.transform.strength > 1.0) {
-        throw new Error('Influence strength must be between 0.0 and 1.0');
-      }
-      if (options.influence.color && !this.isValidColor(options.influence.color)) {
-        throw new Error('Influence color must be in #RRGGBB format');
-      }
-      if (options.influence.transform.darkenFactor !== undefined) {
-        if (options.influence.transform.darkenFactor < 0 || options.influence.transform.darkenFactor > 1.0) {
-          throw new Error('Influence darkenFactor must be between 0.0 and 1.0');
-        }
-        if (options.influence.transform.type !== 'multiply-darken') {
-          throw new Error('Influence darkenFactor can only be used with multiply-darken transform type');
-        }
-      }
-    }
-
-    // Generate influence mask (pre-compute for performance)
-    const influenceMask = options.influence
-      ? this.generateInfluenceMask(content, options.influence)
-      : this.createEmptyMask(content);
-
-    // Calculate bounding box (includes influence radius)
-    const bounds = this.calculateBounds(content, options.position, options.influence);
-
-    // Create internal object with deep clones to prevent external mutations
-    const internalObject: InternalObject = {
-      id,
-      content: this.cloneContent(content),
-      position: { ...options.position },
-      layer,
-      color,
-      // Deep clone influence to prevent external mutations
-      influence: options.influence ? {
-        radius: options.influence.radius,
-        color: options.influence.color ? options.influence.color.toLowerCase() : undefined,
-        transform: {
-          type: options.influence.transform.type,
-          strength: options.influence.transform.strength,
-          falloff: options.influence.transform.falloff,
-          darkenFactor: options.influence.transform.darkenFactor,
-        },
-      } : undefined,
-      flipHorizontal: false,
-      flipVertical: false,
-      influenceMask,
-      bounds,
-    };
-
-    this.objects.set(id, internalObject);
-    this.markRegionDirty(bounds);
+    this.objects.set(obj.id, obj);
+    this.markRegionDirty(obj.getBounds());
   }
 
   /**
@@ -333,172 +138,33 @@ export class Compositor {
    */
   removeObject(id: string): void {
     const obj = this.getObjectOrThrow(id);
-    this.markRegionDirty(obj.bounds);
+    this.markRegionDirty(obj.getBounds());
     this.objects.delete(id);
   }
 
   /**
-   * Moves an object to a new position.
+   * Returns an object by ID.
    *
-   * Both old and new regions (including influence) are marked dirty.
+   * Objects are mutable - changes to the returned object will affect the scene.
+   * Use object mutation methods (setPosition, setContent, etc.) to modify objects.
    *
    * @param id - Object identifier
-   * @param position - New position
+   * @returns The AsciiObject instance
    * @throws {Error} If object ID not found
    */
-  moveObject(id: string, position: Position): void {
-    const obj = this.getObjectOrThrow(id);
-
-    // Mark old position dirty
-    this.markRegionDirty(obj.bounds);
-
-    // Update position and recalculate bounds
-    obj.position = { ...position };
-    obj.bounds = this.calculateBounds(obj.content, position, obj.influence);
-
-    // Mark new position dirty
-    this.markRegionDirty(obj.bounds);
+  getObject(id: string): AsciiObject {
+    return this.getObjectOrThrow(id);
   }
 
   /**
-   * Toggles horizontal flip state of an object.
+   * Returns all objects in the scene.
    *
-   * Flips the content matrix left-to-right and regenerates the influence mask if present.
-   * The object's region is marked dirty.
+   * Objects are mutable - changes to returned objects will affect the scene.
    *
-   * @param id - Object identifier
-   * @throws {Error} If object ID not found
+   * @returns Array of AsciiObject instances
    */
-  flipHorizontal(id: string): void {
-    const obj = this.getObjectOrThrow(id);
-
-    this.markRegionDirty(obj.bounds);
-
-    // Toggle flip state
-    obj.flipHorizontal = !obj.flipHorizontal;
-
-    // Flip content matrix
-    obj.content = this.flipContentHorizontal(obj.content);
-
-    // Regenerate influence mask if object has influence
-    if (obj.influence) {
-      obj.influenceMask = this.generateInfluenceMask(obj.content, obj.influence);
-    }
-
-    this.markRegionDirty(obj.bounds);
-  }
-
-  /**
-   * Toggles vertical flip state of an object.
-   *
-   * Flips the content matrix top-to-bottom and regenerates the influence mask if present.
-   * The object's region is marked dirty.
-   *
-   * @param id - Object identifier
-   * @throws {Error} If object ID not found
-   */
-  flipVertical(id: string): void {
-    const obj = this.getObjectOrThrow(id);
-
-    this.markRegionDirty(obj.bounds);
-
-    // Toggle flip state
-    obj.flipVertical = !obj.flipVertical;
-
-    // Flip content matrix
-    obj.content = this.flipContentVertical(obj.content);
-
-    // Regenerate influence mask if object has influence
-    if (obj.influence) {
-      obj.influenceMask = this.generateInfluenceMask(obj.content, obj.influence);
-    }
-
-    this.markRegionDirty(obj.bounds);
-  }
-
-  /**
-   * Sets horizontal flip to a specific state.
-   *
-   * No-op if object is already in the desired state.
-   *
-   * @param id - Object identifier
-   * @param flipped - Desired flip state
-   * @throws {Error} If object ID not found
-   */
-  setFlipHorizontal(id: string, flipped: boolean): void {
-    const obj = this.getObjectOrThrow(id);
-
-    if (obj.flipHorizontal === flipped) {
-      return; // Already in desired state, no-op
-    }
-
-    this.flipHorizontal(id);
-  }
-
-  /**
-   * Sets vertical flip to a specific state.
-   *
-   * No-op if object is already in the desired state.
-   *
-   * @param id - Object identifier
-   * @param flipped - Desired flip state
-   * @throws {Error} If object ID not found
-   */
-  setFlipVertical(id: string, flipped: boolean): void {
-    const obj = this.getObjectOrThrow(id);
-
-    if (obj.flipVertical === flipped) {
-      return; // Already in desired state, no-op
-    }
-
-    this.flipVertical(id);
-  }
-
-  /**
-   * Returns a deep clone of an object.
-   *
-   * All nested objects and arrays are cloned to prevent external mutations
-   * from corrupting internal state.
-   *
-   * @param id - Object identifier
-   * @returns Deep clone of the object
-   * @throws {Error} If object ID not found
-   */
-  getObject(id: string): CompositorObject {
-    const obj = this.getObjectOrThrow(id);
-
-    // Return deep clone to prevent external mutations
-    return {
-      id: obj.id,
-      content: this.cloneContent(obj.content),
-      position: { ...obj.position },
-      layer: obj.layer,
-      color: obj.color,
-      // Deep clone influence
-      influence: obj.influence ? {
-        radius: obj.influence.radius,
-        transform: {
-          type: obj.influence.transform.type,
-          strength: obj.influence.transform.strength,
-          falloff: obj.influence.transform.falloff,
-          darkenFactor: obj.influence.transform.darkenFactor,
-        },
-      } : undefined,
-      flipHorizontal: obj.flipHorizontal,
-      flipVertical: obj.flipVertical,
-      bounds: { ...obj.bounds },
-    };
-  }
-
-  /**
-   * Returns deep clones of all objects.
-   *
-   * Objects are returned in no particular order (not sorted by layer).
-   *
-   * @returns Array of object clones
-   */
-  listObjects(): CompositorObject[] {
-    return Array.from(this.objects.values()).map(obj => this.getObject(obj.id));
+  listObjects(): AsciiObject[] {
+    return Array.from(this.objects.values());
   }
 
   /**
@@ -603,10 +269,11 @@ export class Compositor {
 
     // Union of all object bounds
     for (const obj of this.objects.values()) {
-      minX = Math.min(minX, obj.bounds.minX);
-      minY = Math.min(minY, obj.bounds.minY);
-      maxX = Math.max(maxX, obj.bounds.maxX);
-      maxY = Math.max(maxY, obj.bounds.maxY);
+      const bounds = obj.getBounds();
+      minX = Math.min(minX, bounds.minX);
+      minY = Math.min(minY, bounds.minY);
+      maxX = Math.max(maxX, bounds.maxX);
+      maxY = Math.max(maxY, bounds.maxY);
     }
 
     return { minX, minY, maxX, maxY };
@@ -631,6 +298,24 @@ export class Compositor {
 
     if (vp.width <= 0 || vp.height <= 0) {
       throw new Error('Viewport width and height must be positive');
+    }
+
+    // Collect dirty bounds from all changed objects
+    for (const obj of this.objects.values()) {
+      if (obj.isDirty()) {
+        const dirtyBounds = obj.getDirtyBounds();
+        if (dirtyBounds) {
+          this.markRegionDirty(dirtyBounds);
+        }
+        obj.clearDirty();
+      }
+    }
+
+    // Regenerate masks for objects that need it (lazy)
+    for (const obj of this.objects.values()) {
+      if (obj.needsMaskRegeneration()) {
+        obj.getInfluenceMask(); // Triggers regeneration
+      }
     }
 
     // Check if we can use cached output
@@ -677,7 +362,7 @@ export class Compositor {
     const layers = this.getSortedLayers();
 
     // Cache objects per layer to avoid repeated lookups (performance optimization)
-    const layerObjectsCache = new Map<number, InternalObject[]>();
+    const layerObjectsCache = new Map<number, AsciiObject[]>();
     for (const layer of layers) {
       layerObjectsCache.set(layer, this.getObjectsOnLayer(layer));
     }
@@ -725,7 +410,7 @@ export class Compositor {
    * @param layerObjectsCache - Pre-computed map of layer -> objects (performance optimization)
    * @returns Rendered character and color
    */
-  private renderCell(x: number, y: number, layers: number[], layerObjectsCache: Map<number, InternalObject[]>): { char: string; color: string } {
+  private renderCell(x: number, y: number, layers: number[], layerObjectsCache: Map<number, AsciiObject[]>): { char: string; color: string } {
     // Working color accumulates influence transforms (affects background view from below)
     let workingColor = '#000000';
     // Collect all transforms (layer effects and influences) to apply to final content color
@@ -760,8 +445,9 @@ export class Compositor {
         const localY = y - obj.position.y;
 
         // Get influence mask dimensions
-        const maskHeight = obj.influenceMask.length;
-        const maskWidth = maskHeight > 0 ? obj.influenceMask[0].length : 0;
+        const influenceMask = obj.getInfluenceMask();
+        const maskHeight = influenceMask.length;
+        const maskWidth = maskHeight > 0 ? influenceMask[0].length : 0;
 
         // Adjust for influence radius offset (mask extends by radius on all sides)
         const radius = obj.influence?.radius || 0;
@@ -770,7 +456,7 @@ export class Compositor {
 
         // Check if position is within influence mask bounds
         if (maskY >= 0 && maskY < maskHeight && maskX >= 0 && maskX < maskWidth) {
-          const maskValue = obj.influenceMask[maskY][maskX];
+          const maskValue = influenceMask[maskY][maskX];
 
           // null = no influence from this object at this position
           if (maskValue === null) {
@@ -1015,7 +701,7 @@ export class Compositor {
    *
    * Helper method to reduce duplicate error handling code.
    */
-  private getObjectOrThrow(id: string): InternalObject {
+  private getObjectOrThrow(id: string): AsciiObject {
     const obj = this.objects.get(id);
     if (!obj) {
       throw new Error(`Object with id '${id}' not found`);
@@ -1043,8 +729,8 @@ export class Compositor {
    * Returns all objects on a specific layer.
    * Objects are returned in insertion order (first-added-wins for same-layer overlaps).
    */
-  private getObjectsOnLayer(layer: number): InternalObject[] {
-    const objects: InternalObject[] = [];
+  private getObjectsOnLayer(layer: number): AsciiObject[] {
+    const objects: AsciiObject[] = [];
     for (const obj of this.objects.values()) {
       if (obj.layer === layer) {
         objects.push(obj);
@@ -1054,301 +740,10 @@ export class Compositor {
   }
 
   /**
-   * Normalizes content from any of three input formats to Cell[][].
-   *
-   * Accepted formats:
-   * 1. Cell matrix: [['#', '#'], ['#', null]]
-   * 2. String array: ['##', '# ']
-   * 3. Newline string: '##\n# '
-   */
-  private normalizeContent(content: Cell[][] | string[] | string): Cell[][] {
-    if (typeof content === 'string') {
-      // Newline-delimited string
-      const lines = content.split('\n');
-      return this.normalizeStringArray(lines);
-    } else if (Array.isArray(content) && content.length > 0 && typeof content[0] === 'string') {
-      // String array
-      return this.normalizeStringArray(content as string[]);
-    } else {
-      // Cell matrix
-      return this.validateAndCloneMatrix(content as Cell[][]);
-    }
-  }
-
-  /**
-   * Converts string array to Cell[][] and validates equal lengths.
-   */
-  private normalizeStringArray(lines: string[]): Cell[][] {
-    if (lines.length === 0) {
-      return [];
-    }
-
-    const width = lines[0].length;
-    for (const line of lines) {
-      if (line.length !== width) {
-        throw new Error('Invalid content format: rows have unequal lengths');
-      }
-    }
-
-    return lines.map(line => line.split(''));
-  }
-
-  /**
-   * Validates Cell[][] has equal row lengths and returns a deep clone.
-   */
-  private validateAndCloneMatrix(matrix: Cell[][]): Cell[][] {
-    if (matrix.length === 0) {
-      return [];
-    }
-
-    const width = matrix[0].length;
-    for (const row of matrix) {
-      if (row.length !== width) {
-        throw new Error('Invalid content format: rows have unequal lengths');
-      }
-    }
-
-    return this.cloneContent(matrix);
-  }
-
-  /**
    * Validates color is in #RRGGBB format.
    */
   private isValidColor(color: string): boolean {
     return /^#[0-9A-Fa-f]{6}$/.test(color);
-  }
-
-  /**
-   * Auto-detects transparent edges using flood fill algorithm.
-   *
-   * Starting from all edge cells, flood fills spaces reachable from edges
-   * and marks them as transparent (null). Trapped spaces remain opaque.
-   *
-   * @param content - Content to process
-   * @returns Content with edge spaces converted to null
-   */
-  private autoDetectEdges(content: Cell[][]): Cell[][] {
-    const height = content.length;
-    const width = content[0].length;
-    const result = this.cloneContent(content);
-    const visited = new Set<string>();
-
-    // Flood fill from all edge cells
-    for (let y = 0; y < height; y++) {
-      this.floodFill(result, 0, y, visited);           // Left edge
-      this.floodFill(result, width - 1, y, visited);   // Right edge
-    }
-    for (let x = 0; x < width; x++) {
-      this.floodFill(result, x, 0, visited);           // Top edge
-      this.floodFill(result, x, height - 1, visited);  // Bottom edge
-    }
-
-    return result;
-  }
-
-  /**
-   * Iterative flood fill implementation using queue to avoid stack overflow.
-   *
-   * Marks all spaces reachable from (x, y) as transparent (null).
-   * Stops at non-space characters.
-   */
-  private floodFill(content: Cell[][], x: number, y: number, visited: Set<string>): void {
-    const height = content.length;
-    const width = content[0].length;
-
-    const queue: Array<{ x: number; y: number }> = [{ x, y }];
-
-    while (queue.length > 0) {
-      const pos = queue.shift()!;
-      const px = pos.x;
-      const py = pos.y;
-
-      // Bounds check
-      if (py < 0 || py >= height || px < 0 || px >= width) {
-        continue;
-      }
-
-      const key = `${px},${py}`;
-      if (visited.has(key)) {
-        continue; // Already visited
-      }
-
-      if (content[py][px] !== ' ') {
-        continue; // Not a space - don't fill
-      }
-
-      visited.add(key);
-      content[py][px] = null; // Mark as transparent
-
-      // Add adjacent cells to queue (4-way connectivity)
-      queue.push({ x: px + 1, y: py });
-      queue.push({ x: px - 1, y: py });
-      queue.push({ x: px, y: py + 1 });
-      queue.push({ x: px, y: py - 1 });
-    }
-  }
-
-  /**
-   * Generates influence mask for an object with influence.
-   *
-   * The mask extends beyond content bounds by the influence radius on all sides.
-   * For each content cell, generates a gradient based on distance and falloff function.
-   * Multiple cells affecting the same position use maximum influence.
-   *
-   * Mask values:
-   * - 100: opaque content cell
-   * - 0-99: influence gradient strength
-   * - null: no influence
-   *
-   * @param content - Object content
-   * @param influence - Influence configuration
-   * @returns Influence mask with padding
-   */
-  private generateInfluenceMask(content: Cell[][], influence: Influence): (number | null)[][] {
-    const { radius } = influence;
-    const contentHeight = content.length;
-    const contentWidth = content[0].length;
-
-    // Mask dimensions include radius padding on all sides
-    const maskHeight = contentHeight + radius * 2;
-    const maskWidth = contentWidth + radius * 2;
-
-    // Initialize mask with nulls
-    const mask: (number | null)[][] = Array(maskHeight)
-      .fill(null)
-      .map(() => Array(maskWidth).fill(null));
-
-    // For each non-transparent content cell
-    for (let cy = 0; cy < contentHeight; cy++) {
-      for (let cx = 0; cx < contentWidth; cx++) {
-        if (content[cy][cx] === null) {
-          continue; // Transparent cell - skip
-        }
-
-        // Mark content position as 100 (opaque)
-        const mx = cx + radius;
-        const my = cy + radius;
-        mask[my][mx] = 100;
-
-        // Generate influence gradient in circle around this cell
-        for (let dy = -radius; dy <= radius; dy++) {
-          for (let dx = -radius; dx <= radius; dx++) {
-            if (dx === 0 && dy === 0) {
-              continue; // Already set to 100
-            }
-
-            // Calculate distance from content cell
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance > radius) {
-              continue; // Outside influence radius
-            }
-
-            // Calculate influence strength at this distance
-            const influenceStrength = this.calculateFalloff(distance, radius, influence);
-            const targetX = mx + dx;
-            const targetY = my + dy;
-
-            // Bounds check (should always pass, but defensive)
-            if (targetY >= 0 && targetY < maskHeight && targetX >= 0 && targetX < maskWidth) {
-              // Take maximum influence if multiple cells affect this position
-              const current = mask[targetY][targetX];
-              mask[targetY][targetX] = Math.max(current || 0, influenceStrength);
-            }
-          }
-        }
-      }
-    }
-
-    return mask;
-  }
-
-  /**
-   * Calculates influence falloff at a given distance.
-   *
-   * Applies the configured falloff function to determine influence strength.
-   * Returns a value between 0 and (strength * 100).
-   *
-   * Falloff functions:
-   * - linear: 1 - (d/r)
-   * - quadratic: 1 - (d/r)²
-   * - exponential: e^(-3*d/r)
-   * - cubic: 1 - (d/r)³
-   *
-   * @param distance - Distance from content cell
-   * @param radius - Influence radius
-   * @param influence - Influence configuration
-   * @returns Influence strength (0-100)
-   */
-  private calculateFalloff(distance: number, radius: number, influence: Influence): number {
-    const { strength, falloff } = influence.transform;
-    const normalized = distance / radius; // 0.0 to 1.0
-
-    let factor: number;
-    switch (falloff) {
-      case 'linear':
-        factor = 1 - normalized;
-        break;
-      case 'quadratic':
-        factor = 1 - normalized * normalized;
-        break;
-      case 'exponential':
-        factor = Math.exp(-normalized * 3); // e^(-3x) for smooth falloff
-        break;
-      case 'cubic':
-        factor = 1 - normalized * normalized * normalized;
-        break;
-    }
-
-    return factor * strength * 100; // Scale to 0-100
-  }
-
-  /**
-   * Creates an empty influence mask for objects without influence.
-   *
-   * Mask is same size as content with 100 where content exists, null otherwise.
-   */
-  private createEmptyMask(content: Cell[][]): (number | null)[][] {
-    return content.map(row => row.map(cell => (cell !== null ? 100 : null)));
-  }
-
-  /**
-   * Calculates bounding box for object content including influence radius.
-   *
-   * The bounds extend by the influence radius on all sides to cover the full
-   * area affected by the object.
-   */
-  private calculateBounds(content: Cell[][], position: Position, influence?: Influence): Bounds {
-    const height = content.length;
-    const width = content[0].length;
-    const radius = influence?.radius || 0;
-
-    return {
-      minX: position.x - radius,
-      minY: position.y - radius,
-      maxX: position.x + width - 1 + radius,
-      maxY: position.y + height - 1 + radius,
-    };
-  }
-
-  /**
-   * Flips content matrix horizontally (left-to-right mirror).
-   */
-  private flipContentHorizontal(content: Cell[][]): Cell[][] {
-    return content.map(row => [...row].reverse());
-  }
-
-  /**
-   * Flips content matrix vertically (top-to-bottom mirror).
-   */
-  private flipContentVertical(content: Cell[][]): Cell[][] {
-    return [...content].reverse();
-  }
-
-  /**
-   * Deep clones a content matrix.
-   */
-  private cloneContent(content: Cell[][]): Cell[][] {
-    return content.map(row => [...row]);
   }
 
   /**

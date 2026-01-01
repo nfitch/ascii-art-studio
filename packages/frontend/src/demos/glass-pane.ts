@@ -3,7 +3,7 @@
  * Demonstrates how spaces with influence create tinted glass effects
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 export function renderGlassPaneDemo(): string {
   return getHtml();
@@ -15,26 +15,26 @@ function generateScene(
   const compositor = new Compositor([], { x: 0, y: 0, width: 40, height: 15 });
 
   // Background pattern (layer 0) - gray objects to show blue tint
-  compositor.addObject('bg1', {
+  compositor.addObject(new AsciiObject({ id: 'bg1',
     content: ['#####', '#####', '#####', '#####', '#####'],
     position: { x: 5, y: 3 },
     color: '#999999',
     layer: 0,
-  });
+  }));
 
-  compositor.addObject('bg2', {
+  compositor.addObject(new AsciiObject({ id: 'bg2',
     content: ['=====', '=====', '=====', '=====', '====='],
     position: { x: 15, y: 7 },
     color: '#999999',
     layer: 0,
-  });
+  }));
 
-  compositor.addObject('bg3', {
+  compositor.addObject(new AsciiObject({ id: 'bg3',
     content: ['*****', '*****', '*****', '*****', '*****'],
     position: { x: 28, y: 4 },
     color: '#999999',
     layer: 0,
-  });
+  }));
 
   // Glass pane (layer 1) - made of spaces with influence
   if (glassMode !== 'none') {
@@ -43,7 +43,7 @@ function generateScene(
       glassContent.push('                    '); // 20 spaces
     }
 
-    compositor.addObject('glass', {
+    compositor.addObject(new AsciiObject({ id: 'glass',
       content: glassContent,
       position: { x: 10, y: 2 },
       color: glassMode === 'lighten' ? '#6666ff' : '#4444ff', // Stronger blue
@@ -56,7 +56,7 @@ function generateScene(
           falloff: 'linear',
         },
       },
-    });
+    }));
   }
 
   return compositor.render();

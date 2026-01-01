@@ -3,7 +3,7 @@
  * Features: Full-screen, zoom, scroll, animation with 400x400 boundary box
  */
 
-import { Compositor } from '@ascii-art-studio/compositor';
+import { Compositor, AsciiObject } from '@ascii-art-studio/compositor';
 
 // World constants
 const WORLD_WIDTH = 200;

@@ -3,7 +3,7 @@
  * Demonstrates horizontal and vertical flip operations
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 let compositor: Compositor;
 let flipH = false;
@@ -27,12 +27,12 @@ function addBackgroundPattern() {
     pattern.push('.'.repeat(50));
   }
 
-  compositor.addObject('background', {
+  compositor.addObject(new AsciiObject({ id: 'background',
     content: pattern,
     position: { x: 0, y: 0 },
     color: '#404040', // Darker for more contrast
     layer: -1, // Behind the arrow
-  });
+  }));
 }
 
 function createArrowShape(): (string | null)[][] {
@@ -59,7 +59,7 @@ function updateObject() {
   }
 
   // Add arrow object
-  compositor.addObject('arrow', {
+  compositor.addObject(new AsciiObject({ id: 'arrow',
     content: createArrowShape(),
     position: { x: 20, y: 5 },
     color: '#000000',
@@ -72,17 +72,17 @@ function updateObject() {
         falloff: 'linear',
       },
     },
-  });
+  }));
 
   // Apply flips based on current state
   const obj = compositor.getObject('arrow');
   if (obj) {
     // Flip to match desired state
     if (flipH !== obj.flipHorizontal) {
-      compositor.flipHorizontal('arrow');
+      compositor.getObject('arrow').flipHorizontalToggle();
     }
     if (flipV !== obj.flipVertical) {
-      compositor.flipVertical('arrow');
+      compositor.getObject('arrow').flipVerticalToggle();
     }
   }
 }

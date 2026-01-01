@@ -3,7 +3,7 @@
  * Demonstrates flood fill edge detection with various shapes
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 export function renderEdgeDetectionStaticDemo(): string {
   return getHtml();
@@ -452,12 +452,12 @@ function addBackground(compositor: Compositor) {
     pattern.push('.'.repeat(40));
   }
 
-  compositor.addObject('background', {
+  compositor.addObject(new AsciiObject({ id: 'background',
     content: pattern,
     position: { x: 0, y: 0 },
     color: '#808080',
     layer: -1,
-  });
+  }));
 }
 
 interface ShapeDefinition {
@@ -538,16 +538,16 @@ function renderShape(shape: ShapeDefinition): string {
 
   // Pane 1: Explicit spaces
   addBackground(comp1);
-  comp1.addObject('shape', {
+  comp1.addObject(new AsciiObject({ id: 'shape',
     content: shape.createShapeExplicit(),
     position: shape.position,
     color: '#000000',
     layer: 0,
-  });
+  }));
 
   // Pane 2: No edge detection
   addBackground(comp2);
-  comp2.addObject('shape', {
+  comp2.addObject(new AsciiObject({ id: 'shape',
     content: shape.createShape(),
     position: shape.position,
     color: '#000000',
@@ -561,11 +561,11 @@ function renderShape(shape: ShapeDefinition): string {
         falloff: 'linear',
       },
     },
-  });
+  }));
 
   // Pane 3: With edge detection
   addBackground(comp3);
-  comp3.addObject('shape', {
+  comp3.addObject(new AsciiObject({ id: 'shape',
     content: shape.createShape(),
     position: shape.position,
     color: '#000000',
@@ -579,7 +579,7 @@ function renderShape(shape: ShapeDefinition): string {
         falloff: 'linear',
       },
     },
-  });
+  }));
 
   const output1 = comp1.render();
   const output2 = comp2.render();

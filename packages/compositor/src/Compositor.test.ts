@@ -1,5 +1,29 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Compositor } from './Compositor';
+import { AsciiObject, type AsciiObjectOptions } from './AsciiObject';
+
+// Helper function for backwards compatibility in tests
+function addObjectLegacy(
+  compositor: Compositor,
+  id: string,
+  options: Omit<AsciiObjectOptions, 'id'>
+): void {
+  const obj = new AsciiObject({ id, ...options });
+  compositor.addObject(obj);
+}
+
+// Helper to create compositor with legacy initial objects format
+function createCompositorLegacy(
+  initialObjects?: Array<{ id: string; [key: string]: any }>,
+  defaultViewport?: any
+): Compositor {
+  if (!initialObjects) {
+    return createCompositorLegacy([], defaultViewport);
+  }
+
+  const objects = initialObjects.map(obj => new AsciiObject(obj as AsciiObjectOptions));
+  return new Compositor(objects, defaultViewport);
+}
 
 describe('Compositor', () => {
   describe('Constructor', () => {
@@ -9,7 +33,7 @@ describe('Compositor', () => {
     });
 
     test('creates compositor with initial objects', () => {
-      const compositor = new Compositor([
+      const compositor = createCompositorLegacy([
         {
           id: 'obj1',
           content: [['#', '#'], ['#', '#']],
@@ -25,7 +49,7 @@ describe('Compositor', () => {
     });
 
     test('creates compositor with default viewport', () => {
-      const compositor = new Compositor([], { x: 0, y: 0, width: 10, height: 10 });
+      const compositor = createCompositorLegacy([], { x: 0, y: 0, width: 10, height: 10 });
       const output = compositor.render();
       expect(output.characters).toHaveLength(10);
       expect(output.characters[0]).toHaveLength(10);
@@ -33,7 +57,7 @@ describe('Compositor', () => {
 
     test('throws on invalid initial object', () => {
       expect(() => {
-        new Compositor([
+        createCompositorLegacy([
           {
             id: 'obj1',
             content: [['a', 'b'], ['c']], // Ragged array
@@ -47,35 +71,35 @@ describe('Compositor', () => {
 
     test('throws on initial object missing id', () => {
       expect(() => {
-        new Compositor([
+        createCompositorLegacy([
           {
             content: [['#']],
             position: { x: 0, y: 0 },
           } as any,
         ]);
-      }).toThrow('Invalid initial object: missing required fields (id, content, position)');
+      }).toThrow('Invalid initial object: missing required fields (id)');
     });
 
     test('throws on initial object missing content', () => {
       expect(() => {
-        new Compositor([
+        createCompositorLegacy([
           {
             id: 'obj1',
             position: { x: 0, y: 0 },
           } as any,
         ]);
-      }).toThrow('Invalid initial object: missing required fields (id, content, position)');
+      }).toThrow('Invalid initial object: missing required fields (content)');
     });
 
     test('throws on initial object missing position', () => {
       expect(() => {
-        new Compositor([
+        createCompositorLegacy([
           {
             id: 'obj1',
             content: [['#']],
           } as any,
         ]);
-      }).toThrow('Invalid initial object: missing required fields (id, content, position)');
+      }).toThrow('Invalid initial object: missing required fields (position)');
     });
   });
 
@@ -87,7 +111,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with character matrix', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#', '#'], ['#', '#']],
         position: { x: 0, y: 0 },
       });
@@ -100,7 +124,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with string array', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: ['##', '##'],
         position: { x: 0, y: 0 },
       });
@@ -110,7 +134,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with newline string', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: '##\n##',
         position: { x: 0, y: 0 },
       });
@@ -120,7 +144,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with custom color and layer', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -134,7 +158,7 @@ describe('Compositor', () => {
 
     test('throws on non-integer layer', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           layer: 1.5,
@@ -143,7 +167,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with null (transparent) cells', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#', null], [null, '#']],
         position: { x: 0, y: 0 },
       });
@@ -154,7 +178,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with negative position', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: -5, y: -10 },
       });
@@ -164,7 +188,7 @@ describe('Compositor', () => {
     });
 
     test('adds object with influence', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
         influence: {
@@ -183,13 +207,13 @@ describe('Compositor', () => {
     });
 
     test('throws on duplicate ID', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
 
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
         });
@@ -198,7 +222,7 @@ describe('Compositor', () => {
 
     test('throws on ragged character matrix', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['a', 'b'], ['c']],
           position: { x: 0, y: 0 },
         });
@@ -207,7 +231,7 @@ describe('Compositor', () => {
 
     test('throws on ragged string array', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: ['ab', 'c'],
           position: { x: 0, y: 0 },
         });
@@ -216,7 +240,7 @@ describe('Compositor', () => {
 
     test('throws on ragged newline string', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: 'ab\nc',
           position: { x: 0, y: 0 },
         });
@@ -225,7 +249,7 @@ describe('Compositor', () => {
 
     test('throws on invalid color format', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           color: 'red',
@@ -235,7 +259,7 @@ describe('Compositor', () => {
 
     test('throws on short hex color', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           color: '#f00',
@@ -245,7 +269,7 @@ describe('Compositor', () => {
 
     test('throws on missing # in color', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           color: 'ff0000',
@@ -255,7 +279,7 @@ describe('Compositor', () => {
 
     test('throws on non-positive influence radius', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           influence: {
@@ -268,7 +292,7 @@ describe('Compositor', () => {
 
     test('throws on non-integer influence radius', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           influence: {
@@ -281,7 +305,7 @@ describe('Compositor', () => {
 
     test('throws on influence strength below 0', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           influence: {
@@ -294,7 +318,7 @@ describe('Compositor', () => {
 
     test('throws on influence strength above 1.0', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [['#']],
           position: { x: 0, y: 0 },
           influence: {
@@ -307,7 +331,7 @@ describe('Compositor', () => {
 
     test('throws on empty content', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [],
           position: { x: 0, y: 0 },
         });
@@ -316,7 +340,7 @@ describe('Compositor', () => {
 
     test('throws on empty row', () => {
       expect(() => {
-        compositor.addObject('obj1', {
+        addObjectLegacy(compositor, 'obj1', {
           content: [[]],
           position: { x: 0, y: 0 },
         });
@@ -324,7 +348,7 @@ describe('Compositor', () => {
     });
 
     test('accepts content with only spaces', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [[' ', ' '], [' ', ' ']],
         position: { x: 0, y: 0 },
       });
@@ -334,14 +358,14 @@ describe('Compositor', () => {
     });
 
     test('renders spaces without influence as opaque', () => {
-      compositor.addObject('bg', {
+      addObjectLegacy(compositor, 'bg', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('fg', {
+      addObjectLegacy(compositor, 'fg', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         color: '#00ff00',
@@ -359,7 +383,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -382,27 +406,27 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
     });
 
     test('moves object to new position', () => {
-      compositor.moveObject('obj1', { x: 5, y: 10 });
+      compositor.getObject('obj1').setPosition(5, 10 );
       const obj = compositor.getObject('obj1');
       expect(obj.position).toEqual({ x: 5, y: 10 });
     });
 
     test('moves object to negative position', () => {
-      compositor.moveObject('obj1', { x: -5, y: -10 });
+      compositor.getObject('obj1').setPosition(-5, -10 );
       const obj = compositor.getObject('obj1');
       expect(obj.position).toEqual({ x: -5, y: -10 });
     });
 
     test('throws on non-existent ID', () => {
       expect(() => {
-        compositor.moveObject('nonexistent', { x: 0, y: 0 });
+        compositor.getObject('nonexistent').setPosition(0, 0 );
       }).toThrow("Object with id 'nonexistent' not found");
     });
   });
@@ -412,7 +436,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           ['a', 'b'],
           ['c', 'd'],
@@ -425,7 +449,7 @@ describe('Compositor', () => {
       const obj1 = compositor.getObject('obj1');
       expect(obj1.flipHorizontal).toBe(false);
 
-      compositor.flipHorizontal('obj1');
+      compositor.getObject('obj1').flipHorizontalToggle();
       const obj2 = compositor.getObject('obj1');
       expect(obj2.flipHorizontal).toBe(true);
       expect(obj2.content).toEqual([
@@ -433,7 +457,7 @@ describe('Compositor', () => {
         ['d', 'c'],
       ]);
 
-      compositor.flipHorizontal('obj1');
+      compositor.getObject('obj1').flipHorizontalToggle();
       const obj3 = compositor.getObject('obj1');
       expect(obj3.flipHorizontal).toBe(false);
       expect(obj3.content).toEqual([
@@ -444,7 +468,7 @@ describe('Compositor', () => {
 
     test('throws on non-existent ID', () => {
       expect(() => {
-        compositor.flipHorizontal('nonexistent');
+        compositor.getObject('nonexistent').flipHorizontalToggle();
       }).toThrow("Object with id 'nonexistent' not found");
     });
   });
@@ -454,7 +478,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           ['a', 'b'],
           ['c', 'd'],
@@ -467,7 +491,7 @@ describe('Compositor', () => {
       const obj1 = compositor.getObject('obj1');
       expect(obj1.flipVertical).toBe(false);
 
-      compositor.flipVertical('obj1');
+      compositor.getObject('obj1').flipVerticalToggle();
       const obj2 = compositor.getObject('obj1');
       expect(obj2.flipVertical).toBe(true);
       expect(obj2.content).toEqual([
@@ -475,7 +499,7 @@ describe('Compositor', () => {
         ['a', 'b'],
       ]);
 
-      compositor.flipVertical('obj1');
+      compositor.getObject('obj1').flipVerticalToggle();
       const obj3 = compositor.getObject('obj1');
       expect(obj3.flipVertical).toBe(false);
       expect(obj3.content).toEqual([
@@ -486,7 +510,7 @@ describe('Compositor', () => {
 
     test('throws on non-existent ID', () => {
       expect(() => {
-        compositor.flipVertical('nonexistent');
+        compositor.getObject('nonexistent').flipVerticalToggle();
       }).toThrow("Object with id 'nonexistent' not found");
     });
   });
@@ -496,7 +520,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           ['a', 'b'],
           ['c', 'd'],
@@ -506,7 +530,7 @@ describe('Compositor', () => {
     });
 
     test('sets horizontal flip to true', () => {
-      compositor.setFlipHorizontal('obj1', true);
+      compositor.getObject('obj1').setFlipHorizontal(true);
       const obj = compositor.getObject('obj1');
       expect(obj.flipHorizontal).toBe(true);
       expect(obj.content).toEqual([
@@ -516,8 +540,8 @@ describe('Compositor', () => {
     });
 
     test('sets horizontal flip to false', () => {
-      compositor.flipHorizontal('obj1'); // Flip it first
-      compositor.setFlipHorizontal('obj1', false);
+      compositor.getObject('obj1').flipHorizontalToggle(); // Flip it first
+      compositor.getObject('obj1').setFlipHorizontal(false);
       const obj = compositor.getObject('obj1');
       expect(obj.flipHorizontal).toBe(false);
       expect(obj.content).toEqual([
@@ -527,7 +551,7 @@ describe('Compositor', () => {
     });
 
     test('no-op when setting to current state', () => {
-      compositor.setFlipHorizontal('obj1', false);
+      compositor.getObject('obj1').setFlipHorizontal(false);
       const obj = compositor.getObject('obj1');
       expect(obj.flipHorizontal).toBe(false);
       expect(obj.content).toEqual([
@@ -538,7 +562,7 @@ describe('Compositor', () => {
 
     test('throws on non-existent ID', () => {
       expect(() => {
-        compositor.setFlipHorizontal('nonexistent', true);
+        compositor.getObject('nonexistent').setFlipHorizontal(true);
       }).toThrow("Object with id 'nonexistent' not found");
     });
   });
@@ -548,7 +572,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           ['a', 'b'],
           ['c', 'd'],
@@ -558,7 +582,7 @@ describe('Compositor', () => {
     });
 
     test('sets vertical flip to true', () => {
-      compositor.setFlipVertical('obj1', true);
+      compositor.getObject('obj1').setFlipVertical(true);
       const obj = compositor.getObject('obj1');
       expect(obj.flipVertical).toBe(true);
       expect(obj.content).toEqual([
@@ -568,8 +592,8 @@ describe('Compositor', () => {
     });
 
     test('sets vertical flip to false', () => {
-      compositor.flipVertical('obj1'); // Flip it first
-      compositor.setFlipVertical('obj1', false);
+      compositor.getObject('obj1').flipVerticalToggle(); // Flip it first
+      compositor.getObject('obj1').setFlipVertical(false);
       const obj = compositor.getObject('obj1');
       expect(obj.flipVertical).toBe(false);
       expect(obj.content).toEqual([
@@ -579,7 +603,7 @@ describe('Compositor', () => {
     });
 
     test('no-op when setting to current state', () => {
-      compositor.setFlipVertical('obj1', false);
+      compositor.getObject('obj1').setFlipVertical(false);
       const obj = compositor.getObject('obj1');
       expect(obj.flipVertical).toBe(false);
       expect(obj.content).toEqual([
@@ -590,7 +614,7 @@ describe('Compositor', () => {
 
     test('throws on non-existent ID', () => {
       expect(() => {
-        compositor.setFlipVertical('nonexistent', true);
+        compositor.getObject('nonexistent').setFlipVertical(true);
       }).toThrow("Object with id 'nonexistent' not found");
     });
   });
@@ -600,7 +624,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           ['a', 'b', 'c'],
           ['d', 'e', 'f'],
@@ -611,8 +635,8 @@ describe('Compositor', () => {
     });
 
     test('applies both horizontal and vertical flips', () => {
-      compositor.flipHorizontal('obj1');
-      compositor.flipVertical('obj1');
+      compositor.getObject('obj1').flipHorizontalToggle();
+      compositor.getObject('obj1').flipVerticalToggle();
       const obj = compositor.getObject('obj1');
       expect(obj.flipHorizontal).toBe(true);
       expect(obj.flipVertical).toBe(true);
@@ -624,8 +648,8 @@ describe('Compositor', () => {
     });
 
     test('renders with combined flips', () => {
-      compositor.flipHorizontal('obj1');
-      compositor.flipVertical('obj1');
+      compositor.getObject('obj1').flipHorizontalToggle();
+      compositor.getObject('obj1').flipVerticalToggle();
       const output = compositor.render({ x: 0, y: 0, width: 3, height: 3 });
       expect(output.characters).toEqual([
         ['i', 'h', 'g'],
@@ -640,7 +664,7 @@ describe('Compositor', () => {
 
     beforeEach(() => {
       compositor = new Compositor();
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 5, y: 10 },
         color: '#ff0000',
@@ -658,21 +682,21 @@ describe('Compositor', () => {
       expect(obj.flipVertical).toBe(false);
     });
 
-    test('returns immutable object', () => {
+    test('returns mutable object that can be modified', () => {
       const obj = compositor.getObject('obj1');
       obj.content[0][0] = 'X';
 
       const obj2 = compositor.getObject('obj1');
-      expect(obj2.content[0][0]).toBe('#');
+      expect(obj2.content[0][0]).toBe('X'); // Same object, mutation visible
     });
 
-    test('prevents influence corruption from user mutations', () => {
-      // Test 1: Mutating influence object after addObject should not corrupt internal state
+    test('clones input influence to prevent external mutations', () => {
+      // Test: Mutating influence object after addObject should not affect internal state
       const influence = {
         radius: 2,
         transform: { type: 'lighten' as const, strength: 0.5, falloff: 'linear' as const },
       };
-      compositor.addObject('obj2', {
+      addObjectLegacy(compositor, 'obj2', {
         content: [['#']],
         position: { x: 0, y: 0 },
         influence,
@@ -683,21 +707,21 @@ describe('Compositor', () => {
       influence.transform.strength = 1.0;
       influence.transform.type = 'darken';
 
-      // Verify internal state not corrupted
+      // Verify internal state not affected by external mutation
       const obj = compositor.getObject('obj2');
       expect(obj.influence?.radius).toBe(2);
       expect(obj.influence?.transform.strength).toBe(0.5);
       expect(obj.influence?.transform.type).toBe('lighten');
 
-      // Test 2: Mutating returned influence object should not corrupt internal state
+      // Test 2: Object influence is mutable after retrieval
       obj.influence!.radius = 20;
       obj.influence!.transform.strength = 0.9;
       obj.influence!.transform.falloff = 'cubic';
 
       const obj2 = compositor.getObject('obj2');
-      expect(obj2.influence?.radius).toBe(2);
-      expect(obj2.influence?.transform.strength).toBe(0.5);
-      expect(obj2.influence?.transform.falloff).toBe('linear');
+      expect(obj2.influence?.radius).toBe(20); // Mutations are visible
+      expect(obj2.influence?.transform.strength).toBe(0.9);
+      expect(obj2.influence?.transform.falloff).toBe('cubic');
     });
 
     test('throws on non-existent ID', () => {
@@ -719,11 +743,11 @@ describe('Compositor', () => {
     });
 
     test('returns all objects', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
-      compositor.addObject('obj2', {
+      addObjectLegacy(compositor, 'obj2', {
         content: [['*']],
         position: { x: 5, y: 5 },
       });
@@ -733,8 +757,8 @@ describe('Compositor', () => {
       expect(objects.map(o => o.id).sort()).toEqual(['obj1', 'obj2']);
     });
 
-    test('returns immutable objects', () => {
-      compositor.addObject('obj1', {
+    test('returns mutable objects that can be modified', () => {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -743,7 +767,7 @@ describe('Compositor', () => {
       objects[0].content[0][0] = 'X';
 
       const obj = compositor.getObject('obj1');
-      expect(obj.content[0][0]).toBe('#');
+      expect(obj.content[0][0]).toBe('X'); // Mutations are visible
     });
   });
 
@@ -760,7 +784,7 @@ describe('Compositor', () => {
     });
 
     test('returns bounds for single object', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#', '#'], ['#', '#']],
         position: { x: 5, y: 10 },
       });
@@ -770,11 +794,11 @@ describe('Compositor', () => {
     });
 
     test('returns bounds for multiple objects', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
-      compositor.addObject('obj2', {
+      addObjectLegacy(compositor, 'obj2', {
         content: [['#']],
         position: { x: 10, y: 20 },
       });
@@ -784,7 +808,7 @@ describe('Compositor', () => {
     });
 
     test('includes negative positions', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: -5, y: -10 },
       });
@@ -794,7 +818,7 @@ describe('Compositor', () => {
     });
 
     test('includes influence radius in bounds', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 5, y: 5 },
         influence: {
@@ -830,7 +854,7 @@ describe('Compositor', () => {
     });
 
     test('renders single object', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#', '#'], ['#', '#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -848,7 +872,7 @@ describe('Compositor', () => {
     });
 
     test('renders object with offset position', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 1, y: 1 },
         color: '#ff0000',
@@ -864,13 +888,13 @@ describe('Compositor', () => {
     });
 
     test('renders with transparent cells', () => {
-      compositor.addObject('bg', {
+      addObjectLegacy(compositor, 'bg', {
         content: [['*', '*'], ['*', '*']],
         position: { x: 0, y: 0 },
         color: '#0000ff',
         layer: 0,
       });
-      compositor.addObject('fg', {
+      addObjectLegacy(compositor, 'fg', {
         content: [['#', null], [null, '#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -889,17 +913,17 @@ describe('Compositor', () => {
     });
 
     test('renders layers in correct order (higher layers on top)', () => {
-      compositor.addObject('layer0', {
+      addObjectLegacy(compositor, 'layer0', {
         content: [['A']],
         position: { x: 0, y: 0 },
         layer: 0,
       });
-      compositor.addObject('layer1', {
+      addObjectLegacy(compositor, 'layer1', {
         content: [['B']],
         position: { x: 0, y: 0 },
         layer: 1,
       });
-      compositor.addObject('layer-1', {
+      addObjectLegacy(compositor, 'layer-1', {
         content: [['C']],
         position: { x: 0, y: 0 },
         layer: -1,
@@ -910,12 +934,12 @@ describe('Compositor', () => {
     });
 
     test('renders same-layer objects (first added wins)', () => {
-      compositor.addObject('first', {
+      addObjectLegacy(compositor, 'first', {
         content: [['A']],
         position: { x: 0, y: 0 },
         layer: 0,
       });
-      compositor.addObject('second', {
+      addObjectLegacy(compositor, 'second', {
         content: [['B']],
         position: { x: 0, y: 0 },
         layer: 0,
@@ -926,7 +950,7 @@ describe('Compositor', () => {
     });
 
     test('renders with viewport larger than canvas', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -939,7 +963,7 @@ describe('Compositor', () => {
     });
 
     test('renders with viewport offset', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 5, y: 5 },
       });
@@ -949,7 +973,7 @@ describe('Compositor', () => {
     });
 
     test('renders viewport entirely off canvas (all blanks)', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -962,8 +986,8 @@ describe('Compositor', () => {
     });
 
     test('uses default viewport from constructor', () => {
-      const comp = new Compositor([], { x: 0, y: 0, width: 2, height: 2 });
-      comp.addObject('obj1', {
+      const comp = createCompositorLegacy([], { x: 0, y: 0, width: 2, height: 2 });
+      addObjectLegacy(comp, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -994,7 +1018,7 @@ describe('Compositor', () => {
     });
 
     test('detects edges with flood fill', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           '  ###  ',
           '  # #  ',
@@ -1013,7 +1037,7 @@ describe('Compositor', () => {
     });
 
     test('detects leading spaces as transparent', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [
           ' ###',
           '  ##',
@@ -1037,14 +1061,14 @@ describe('Compositor', () => {
     });
 
     test('applies lighten transform with linear falloff', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('upper', {
+      addObjectLegacy(compositor, 'upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1060,14 +1084,14 @@ describe('Compositor', () => {
     });
 
     test('applies lighten transform with quadratic falloff', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('upper', {
+      addObjectLegacy(compositor, 'upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1083,14 +1107,14 @@ describe('Compositor', () => {
     });
 
     test('applies lighten transform with exponential falloff', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('upper', {
+      addObjectLegacy(compositor, 'upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1106,14 +1130,14 @@ describe('Compositor', () => {
     });
 
     test('applies lighten transform with cubic falloff', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('upper', {
+      addObjectLegacy(compositor, 'upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1129,14 +1153,14 @@ describe('Compositor', () => {
     });
 
     test('applies darken transform', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
 
-      compositor.addObject('upper', {
+      addObjectLegacy(compositor, 'upper', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1152,14 +1176,14 @@ describe('Compositor', () => {
     });
 
     test('accumulates transparency from multiple layers', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('layer1', {
+      addObjectLegacy(compositor, 'layer1', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1169,7 +1193,7 @@ describe('Compositor', () => {
         },
       });
 
-      compositor.addObject('layer2', {
+      addObjectLegacy(compositor, 'layer2', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 2,
@@ -1187,14 +1211,14 @@ describe('Compositor', () => {
     });
 
     test('renders blank when accumulated transparency >= 100', () => {
-      compositor.addObject('base', {
+      addObjectLegacy(compositor, 'base', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
       });
 
-      compositor.addObject('layer1', {
+      addObjectLegacy(compositor, 'layer1', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 1,
@@ -1204,7 +1228,7 @@ describe('Compositor', () => {
         },
       });
 
-      compositor.addObject('layer2', {
+      addObjectLegacy(compositor, 'layer2', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         layer: 2,
@@ -1224,7 +1248,7 @@ describe('Compositor', () => {
 
     test('applies custom influence color (blue object with red glow)', () => {
       // Create two blue objects close together, first one has red influence
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: ['###', '###', '###'],
         position: { x: 2, y: 2 },
         color: '#0000ff', // Blue
@@ -1236,7 +1260,7 @@ describe('Compositor', () => {
         },
       });
 
-      compositor.addObject('obj2', {
+      addObjectLegacy(compositor, 'obj2', {
         content: ['@@@', '@@@', '@@@'],
         position: { x: 5, y: 2 }, // 1 cell gap, within radius 2
         color: '#0000ff', // Blue
@@ -1285,7 +1309,7 @@ describe('Compositor', () => {
     });
 
     test('caches render output when nothing changes', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -1298,7 +1322,7 @@ describe('Compositor', () => {
     });
 
     test('prevents cache corruption from user mutations', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -1318,7 +1342,7 @@ describe('Compositor', () => {
     test('invalidates cache when object added', () => {
       const output1 = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
 
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -1328,21 +1352,21 @@ describe('Compositor', () => {
     });
 
     test('invalidates cache when object moved', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
 
       const output1 = compositor.render({ x: 0, y: 0, width: 3, height: 3 });
 
-      compositor.moveObject('obj1', { x: 1, y: 1 });
+      compositor.getObject('obj1').setPosition(1, 1 );
 
       const output2 = compositor.render({ x: 0, y: 0, width: 3, height: 3 });
       expect(output2.characters).not.toEqual(output1.characters);
     });
 
     test('invalidates cache when object removed', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -1356,21 +1380,21 @@ describe('Compositor', () => {
     });
 
     test('invalidates cache when object flipped', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['a', 'b']],
         position: { x: 0, y: 0 },
       });
 
       compositor.render({ x: 0, y: 0, width: 2, height: 1 });
 
-      compositor.flipHorizontal('obj1');
+      compositor.getObject('obj1').flipHorizontalToggle();
 
       const output = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
       expect(output.characters[0]).toEqual(['b', 'a']);
     });
 
     test('re-renders when viewport changes', () => {
-      compositor.addObject('obj1', {
+      addObjectLegacy(compositor, 'obj1', {
         content: [['#']],
         position: { x: 0, y: 0 },
       });
@@ -1392,7 +1416,7 @@ describe('Compositor', () => {
 
     test('multiply blend mode combines colors', () => {
       // White object on bottom layer
-      compositor.addObject('bottom', {
+      addObjectLegacy(compositor, 'bottom', {
         content: [['*']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -1400,7 +1424,7 @@ describe('Compositor', () => {
       });
 
       // Red glass pane (spaces) on top layer with multiply influence
-      compositor.addObject('top', {
+      addObjectLegacy(compositor, 'top', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -1422,13 +1446,13 @@ describe('Compositor', () => {
     test('multiply-darken is darker than multiply', () => {
       // Setup two identical scenes, one with multiply, one with multiply-darken
       const comp1 = new Compositor();
-      comp1.addObject('bottom', {
+      addObjectLegacy(comp1, 'bottom', {
         content: [['*']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
-      comp1.addObject('top', {
+      addObjectLegacy(comp1, 'top', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -1440,13 +1464,13 @@ describe('Compositor', () => {
       });
 
       const comp2 = new Compositor();
-      comp2.addObject('bottom', {
+      addObjectLegacy(comp2, 'bottom', {
         content: [['*']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
-      comp2.addObject('top', {
+      addObjectLegacy(comp2, 'top', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -1487,13 +1511,13 @@ describe('Compositor', () => {
 
     test('multiply-darken respects darkenFactor parameter', () => {
       const comp1 = new Compositor();
-      comp1.addObject('bottom', {
+      addObjectLegacy(comp1, 'bottom', {
         content: [['*']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
-      comp1.addObject('top', {
+      addObjectLegacy(comp1, 'top', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -1505,13 +1529,13 @@ describe('Compositor', () => {
       });
 
       const comp2 = new Compositor();
-      comp2.addObject('bottom', {
+      addObjectLegacy(comp2, 'bottom', {
         content: [['*']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
-      comp2.addObject('top', {
+      addObjectLegacy(comp2, 'top', {
         content: [[' ']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -1536,7 +1560,7 @@ describe('Compositor', () => {
 
     test('multiply with glass pane effect', () => {
       // Object beneath glass
-      compositor.addObject('bg', {
+      addObjectLegacy(compositor, 'bg', {
         content: [['#', '#']],
         position: { x: 0, y: 0 },
         color: '#0000ff',
@@ -1544,7 +1568,7 @@ describe('Compositor', () => {
       });
 
       // Glass pane (spaces with multiply influence)
-      compositor.addObject('glass', {
+      addObjectLegacy(compositor, 'glass', {
         content: [[' ', ' '], [' ', ' ']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
@@ -1738,7 +1762,7 @@ describe('Compositor', () => {
 
     describe('Layer effect rendering', () => {
       test('applies lighten effect uniformly to viewport', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#'], ['#', '#']],
           position: { x: 0, y: 0 },
           color: '#000000',
@@ -1761,7 +1785,7 @@ describe('Compositor', () => {
       });
 
       test('applies darken effect uniformly to viewport', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#'], ['#', '#']],
           position: { x: 0, y: 0 },
           color: '#ffffff',
@@ -1784,7 +1808,7 @@ describe('Compositor', () => {
       });
 
       test('applies multiply effect uniformly to viewport', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#'], ['#', '#']],
           position: { x: 0, y: 0 },
           color: '#ffffff',
@@ -1807,7 +1831,7 @@ describe('Compositor', () => {
       });
 
       test('applies multiply-darken effect uniformly to viewport', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#'], ['#', '#']],
           position: { x: 0, y: 0 },
           color: '#ffffff',
@@ -1829,7 +1853,7 @@ describe('Compositor', () => {
 
       test('layer effect applied before rendering layer objects', () => {
         // Layer 0: white background
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#'], ['#', '#']],
           position: { x: 0, y: 0 },
           color: '#ffffff',
@@ -1844,7 +1868,7 @@ describe('Compositor', () => {
         });
 
         // Layer 1 object: black character (should NOT be affected by layer 1 effect)
-        compositor.addObject('top', {
+        addObjectLegacy(compositor, 'top', {
           content: [['@']],
           position: { x: 0, y: 0 },
           color: '#000000',
@@ -1864,7 +1888,7 @@ describe('Compositor', () => {
 
       test('multiple layer effects stack correctly', () => {
         // Layer 0: white background
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#'], ['#', '#']],
           position: { x: 0, y: 0 },
           color: '#ffffff',
@@ -1908,7 +1932,7 @@ describe('Compositor', () => {
       });
 
       test('layer effect with strength 0 has no effect', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#']],
           position: { x: 0, y: 0 },
           color: '#808080',
@@ -1929,7 +1953,7 @@ describe('Compositor', () => {
 
       test('layer effect interacts with object influence', () => {
         // Layer 0: black character with white lighten influence
-        compositor.addObject('obj', {
+        addObjectLegacy(compositor, 'obj', {
           content: [['#']],
           position: { x: 0, y: 0 },
           color: '#000000',
@@ -1962,7 +1986,7 @@ describe('Compositor', () => {
       });
 
       test('removing layer effect removes its rendering effect', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#']],
           position: { x: 0, y: 0 },
           color: '#000000',
@@ -1984,7 +2008,7 @@ describe('Compositor', () => {
       });
 
       test('mixed effect types on different layers', () => {
-        compositor.addObject('bg', {
+        addObjectLegacy(compositor, 'bg', {
           content: [['#', '#']],
           position: { x: 0, y: 0 },
           color: '#808080',
@@ -2017,7 +2041,7 @@ describe('Compositor', () => {
   describe('Color Normalization', () => {
     test('normalizes uppercase hex colors to lowercase', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#FFFFFF',
@@ -2029,7 +2053,7 @@ describe('Compositor', () => {
 
     test('normalizes mixed case hex colors to lowercase', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#AbC123',
@@ -2041,7 +2065,7 @@ describe('Compositor', () => {
 
     test('normalizes influence colors to lowercase', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#000000',
@@ -2059,7 +2083,7 @@ describe('Compositor', () => {
 
     test('normalizes layer effect colors to lowercase', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#808080',
@@ -2076,7 +2100,7 @@ describe('Compositor', () => {
   describe('Falloff Types', () => {
     test('linear falloff decreases steadily', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -2094,7 +2118,7 @@ describe('Compositor', () => {
 
     test('quadratic falloff is gentler near center', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -2108,7 +2132,7 @@ describe('Compositor', () => {
 
     test('exponential falloff is steeper overall', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -2123,7 +2147,7 @@ describe('Compositor', () => {
 
     test('cubic falloff is very gentle near center', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -2137,7 +2161,7 @@ describe('Compositor', () => {
 
     test('diagonal distance calculation works correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -2156,7 +2180,7 @@ describe('Compositor', () => {
   describe('Layer Effects Stacking', () => {
     test('multiple layer effects accumulate correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#808080',
@@ -2175,7 +2199,7 @@ describe('Compositor', () => {
 
     test('layer effects on background cells', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
@@ -2193,7 +2217,7 @@ describe('Compositor', () => {
 
     test('removing layer effect works correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#808080',
@@ -2212,7 +2236,7 @@ describe('Compositor', () => {
 
     test('effects on negative layer numbers work', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#808080',
@@ -2230,13 +2254,13 @@ describe('Compositor', () => {
   describe('Influence Overlaps', () => {
     test('same-layer influences both affect background', () => {
       const compositor = new Compositor();
-      compositor.addObject('left', {
+      addObjectLegacy(compositor, 'left', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         influence: { radius: 3, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
       });
-      compositor.addObject('right', {
+      addObjectLegacy(compositor, 'right', {
         content: [['@']],
         position: { x: 4, y: 0 },
         color: '#ffffff',
@@ -2251,13 +2275,13 @@ describe('Compositor', () => {
 
     test('different strength influences overlap', () => {
       const compositor = new Compositor();
-      compositor.addObject('weak', {
+      addObjectLegacy(compositor, 'weak', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         influence: { radius: 3, transform: { type: 'lighten', strength: 0.2, falloff: 'linear' } },
       });
-      compositor.addObject('strong', {
+      addObjectLegacy(compositor, 'strong', {
         content: [['@']],
         position: { x: 6, y: 0 },
         color: '#ffffff',
@@ -2271,14 +2295,14 @@ describe('Compositor', () => {
 
     test('cross-layer influence works', () => {
       const compositor = new Compositor();
-      compositor.addObject('bottom', {
+      addObjectLegacy(compositor, 'bottom', {
         content: [['#']],
         position: { x: 0, y: 0 },
         color: '#ff0000',
         layer: 0,
         influence: { radius: 2, transform: { type: 'lighten', strength: 0.5, falloff: 'linear' } },
       });
-      compositor.addObject('top', {
+      addObjectLegacy(compositor, 'top', {
         content: [['@']],
         position: { x: 3, y: 0 },
         color: '#0000ff',
@@ -2292,13 +2316,13 @@ describe('Compositor', () => {
 
     test('multiply influences work with non-black backgrounds', () => {
       const compositor = new Compositor();
-      compositor.addObject('bg', {
+      addObjectLegacy(compositor, 'bg', {
         content: [['#', '#', '#', '#', '#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
-      compositor.addObject('red', {
+      addObjectLegacy(compositor, 'red', {
         content: [['R']],
         position: { x: 1, y: 0 },
         color: '#ffffff',
@@ -2318,13 +2342,13 @@ describe('Compositor', () => {
 
     test('glass pane effects can overlap', () => {
       const compositor = new Compositor();
-      compositor.addObject('bg', {
+      addObjectLegacy(compositor, 'bg', {
         content: [['#', '#', '#', '#', '#']],
         position: { x: 0, y: 0 },
         color: '#ffffff',
         layer: 0,
       });
-      compositor.addObject('glass1', {
+      addObjectLegacy(compositor, 'glass1', {
         content: [[' ']],
         position: { x: 1, y: 0 },
         color: '#ff0000',
@@ -2335,7 +2359,7 @@ describe('Compositor', () => {
           transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
         },
       });
-      compositor.addObject('glass2', {
+      addObjectLegacy(compositor, 'glass2', {
         content: [[' ']],
         position: { x: 3, y: 0 },
         color: '#0000ff',
@@ -2358,13 +2382,13 @@ describe('Compositor', () => {
   describe('Flip Operations', () => {
     test('horizontal flip reverses content correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['A', 'B', 'C']],
         position: { x: 0, y: 0 },
       });
 
       const before = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
-      compositor.flipHorizontal('obj');
+      compositor.getObject('obj').flipHorizontalToggle();
       const after = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
 
       expect(before.characters[0].join('')).toBe('ABC');
@@ -2373,13 +2397,13 @@ describe('Compositor', () => {
 
     test('vertical flip reverses rows correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['A'], ['B'], ['C']],
         position: { x: 0, y: 0 },
       });
 
       const before = compositor.render({ x: 0, y: 0, width: 1, height: 3 });
-      compositor.flipVertical('obj');
+      compositor.getObject('obj').flipVerticalToggle();
       const after = compositor.render({ x: 0, y: 0, width: 1, height: 3 });
 
       expect(before.characters.map(r => r[0]).join('')).toBe('ABC');
@@ -2388,7 +2412,7 @@ describe('Compositor', () => {
 
     test('double flip works correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [
           ['1', '2'],
           ['3', '4'],
@@ -2396,8 +2420,8 @@ describe('Compositor', () => {
         position: { x: 0, y: 0 },
       });
 
-      compositor.flipHorizontal('obj');
-      compositor.flipVertical('obj');
+      compositor.getObject('obj').flipHorizontalToggle();
+      compositor.getObject('obj').flipVerticalToggle();
       const output = compositor.render({ x: 0, y: 0, width: 2, height: 2 });
 
       expect(output.characters[0].join('')).toBe('43');
@@ -2406,12 +2430,12 @@ describe('Compositor', () => {
 
     test('flip preserves transparency', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#', null, '@']],
         position: { x: 0, y: 0 },
       });
 
-      compositor.flipHorizontal('obj');
+      compositor.getObject('obj').flipHorizontalToggle();
       const output = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
 
       expect(output.characters[0][0]).toBe('@');
@@ -2421,14 +2445,14 @@ describe('Compositor', () => {
 
     test('flip toggle returns to original', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['L', 'R']],
         position: { x: 0, y: 0 },
       });
 
       const orig = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
-      compositor.flipHorizontal('obj');
-      compositor.flipHorizontal('obj');
+      compositor.getObject('obj').flipHorizontalToggle();
+      compositor.getObject('obj').flipHorizontalToggle();
       const toggled = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
 
       expect(orig.characters[0].join('')).toBe(toggled.characters[0].join(''));
@@ -2436,15 +2460,15 @@ describe('Compositor', () => {
 
     test('setFlipHorizontal sets specific state', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['A', 'B']],
         position: { x: 0, y: 0 },
       });
 
-      compositor.setFlipHorizontal('obj', true);
+      compositor.getObject('obj').setFlipHorizontal(true);
       const flipped = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
 
-      compositor.setFlipHorizontal('obj', false);
+      compositor.getObject('obj').setFlipHorizontal(false);
       const normal = compositor.render({ x: 0, y: 0, width: 2, height: 1 });
 
       expect(flipped.characters[0].join('')).toBe('BA');
@@ -2455,7 +2479,7 @@ describe('Compositor', () => {
   describe('AutoDetectEdges', () => {
     test('detects edge spaces and makes them transparent', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [
           [' ', '#', ' '],
           ['#', '#', '#'],
@@ -2474,7 +2498,7 @@ describe('Compositor', () => {
 
     test('preserves trapped spaces inside shape', () => {
       const compositor = new Compositor();
-      compositor.addObject('donut', {
+      addObjectLegacy(compositor, 'donut', {
         content: [
           [' ', ' ', ' ', ' ', ' '],
           [' ', '#', '#', '#', ' '],
@@ -2495,7 +2519,7 @@ describe('Compositor', () => {
 
     test('all-spaces becomes fully transparent', () => {
       const compositor = new Compositor();
-      compositor.addObject('invisible', {
+      addObjectLegacy(compositor, 'invisible', {
         content: [
           [' ', ' '],
           [' ', ' '],
@@ -2513,7 +2537,7 @@ describe('Compositor', () => {
 
     test('no spaces means autoDetect has no effect', () => {
       const compositor = new Compositor();
-      compositor.addObject('solid', {
+      addObjectLegacy(compositor, 'solid', {
         content: [
           ['#', '#'],
           ['#', '#'],
@@ -2532,7 +2556,7 @@ describe('Compositor', () => {
   describe('Negative Coordinates', () => {
     test('object at negative position renders correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: -5, y: -3 },
       });
@@ -2543,7 +2567,7 @@ describe('Compositor', () => {
 
     test('negative viewport with positive objects shows blanks', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['A']],
         position: { x: 5, y: 5 },
       });
@@ -2554,7 +2578,7 @@ describe('Compositor', () => {
 
     test('object spanning origin works correctly', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [
           ['1', '2'],
           ['3', '4'],
@@ -2569,11 +2593,11 @@ describe('Compositor', () => {
 
     test('canvas bounds include negative coordinates', () => {
       const compositor = new Compositor();
-      compositor.addObject('neg', {
+      addObjectLegacy(compositor, 'neg', {
         content: [['#']],
         position: { x: -10, y: -5 },
       });
-      compositor.addObject('pos', {
+      addObjectLegacy(compositor, 'pos', {
         content: [['@']],
         position: { x: 10, y: 5 },
       });
@@ -2587,12 +2611,12 @@ describe('Compositor', () => {
 
     test('moving object to negative coordinates works', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['M']],
         position: { x: 0, y: 0 },
       });
 
-      compositor.moveObject('obj', { x: -3, y: -3 });
+      compositor.getObject('obj').setPosition(-3, -3 );
       const output = compositor.render({ x: -4, y: -4, width: 2, height: 2 });
 
       expect(output.characters[1][1]).toBe('M');
@@ -2600,7 +2624,7 @@ describe('Compositor', () => {
 
     test('influence at negative coordinates works', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['#']],
         position: { x: -5, y: 0 },
         color: '#ff0000',
@@ -2615,7 +2639,7 @@ describe('Compositor', () => {
 
     test('layer effects work with negative viewport', () => {
       const compositor = new Compositor();
-      compositor.addObject('obj', {
+      addObjectLegacy(compositor, 'obj', {
         content: [['X']],
         position: { x: -3, y: -3 },
         color: '#808080',

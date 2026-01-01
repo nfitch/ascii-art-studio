@@ -3,7 +3,7 @@
  * Interactive edge detection - click cells to toggle characters and see flood fill update
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 const GRID_WIDTH = 30;
 const GRID_HEIGHT = 20;
@@ -65,13 +65,13 @@ function renderCurrentState(): {
 
   // Without edge detection
   const comp1 = new Compositor([], { x: 0, y: 0, width: GRID_WIDTH, height: GRID_HEIGHT });
-  comp1.addObject('bg', {
+  comp1.addObject(new AsciiObject({ id: 'bg',
     content: Array(GRID_HEIGHT).fill('.'.repeat(GRID_WIDTH)),
     position: { x: 0, y: 0 },
     color: '#808080',
     layer: -1,
-  });
-  comp1.addObject('shape', {
+  }));
+  comp1.addObject(new AsciiObject({ id: 'shape',
     content,
     position: { x: 0, y: 0 },
     color: '#000000',
@@ -85,17 +85,17 @@ function renderCurrentState(): {
         falloff: 'linear',
       },
     },
-  });
+  }));
 
   // With edge detection
   const comp2 = new Compositor([], { x: 0, y: 0, width: GRID_WIDTH, height: GRID_HEIGHT });
-  comp2.addObject('bg', {
+  comp2.addObject(new AsciiObject({ id: 'bg',
     content: Array(GRID_HEIGHT).fill('.'.repeat(GRID_WIDTH)),
     position: { x: 0, y: 0 },
     color: '#808080',
     layer: -1,
-  });
-  comp2.addObject('shape', {
+  }));
+  comp2.addObject(new AsciiObject({ id: 'shape',
     content,
     position: { x: 0, y: 0 },
     color: '#000000',
@@ -109,7 +109,7 @@ function renderCurrentState(): {
         falloff: 'linear',
       },
     },
-  });
+  }));
 
   return {
     withoutEdgeDetection: comp1.render(),

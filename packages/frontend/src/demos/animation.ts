@@ -3,7 +3,7 @@
  * Demonstrates frame-by-frame animation with moving objects
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 type Shape = 'square' | 'circle' | 'triangle' | 'hollow-circle';
 

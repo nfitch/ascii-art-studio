@@ -3,7 +3,7 @@
  * Demonstrates how layer effects apply uniform color transformations to entire layers
  */
 
-import { Compositor } from '../../../compositor/src/Compositor';
+import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 
 export function renderLayerEffectsDemo(): string {
   return getHtml();
@@ -16,14 +16,14 @@ function generateScene(config: {
   const compositor = new Compositor([], { x: 0, y: 0, width: 50, height: 20 });
 
   // Layer 0: Background scenery (gray buildings and ground)
-  compositor.addObject('ground', {
+  compositor.addObject(new AsciiObject({ id: 'ground',
     content: [Array(50).fill('=').join('')],
     position: { x: 0, y: 15 },
     color: '#666666',
     layer: 0,
-  });
+  }));
 
-  compositor.addObject('building1', {
+  compositor.addObject(new AsciiObject({ id: 'building1',
     content: [
       '##########',
       '##########',
@@ -34,9 +34,9 @@ function generateScene(config: {
     position: { x: 5, y: 10 },
     color: '#808080',
     layer: 0,
-  });
+  }));
 
-  compositor.addObject('building2', {
+  compositor.addObject(new AsciiObject({ id: 'building2',
     content: [
       '########',
       '########',
@@ -46,9 +46,9 @@ function generateScene(config: {
     position: { x: 20, y: 11 },
     color: '#999999',
     layer: 0,
-  });
+  }));
 
-  compositor.addObject('building3', {
+  compositor.addObject(new AsciiObject({ id: 'building3',
     content: [
       '############',
       '############',
@@ -60,10 +60,10 @@ function generateScene(config: {
     position: { x: 35, y: 9 },
     color: '#707070',
     layer: 0,
-  });
+  }));
 
   // Layer 1: Mid-ground objects (trees)
-  compositor.addObject('tree1', {
+  compositor.addObject(new AsciiObject({ id: 'tree1',
     content: [
       '  ***  ',
       ' ***** ',
@@ -74,9 +74,9 @@ function generateScene(config: {
     position: { x: 16, y: 10 },
     color: '#00aa00',
     layer: 1,
-  });
+  }));
 
-  compositor.addObject('tree2', {
+  compositor.addObject(new AsciiObject({ id: 'tree2',
     content: [
       ' *** ',
       '*****',
@@ -86,7 +86,7 @@ function generateScene(config: {
     position: { x: 30, y: 11 },
     color: '#00cc00',
     layer: 1,
-  });
+  }));
 
   // Apply layer 1 effect if specified
   if (config.layer1Effect) {
@@ -94,7 +94,7 @@ function generateScene(config: {
   }
 
   // Layer 2: Foreground objects (characters)
-  compositor.addObject('person1', {
+  compositor.addObject(new AsciiObject({ id: 'person1',
     content: [
       ' O ',
       '/|\\',
@@ -103,9 +103,9 @@ function generateScene(config: {
     position: { x: 12, y: 12 },
     color: '#ff0000',
     layer: 2,
-  });
+  }));
 
-  compositor.addObject('person2', {
+  compositor.addObject(new AsciiObject({ id: 'person2',
     content: [
       ' O ',
       '/|\\',
@@ -114,7 +114,7 @@ function generateScene(config: {
     position: { x: 25, y: 12 },
     color: '#0000ff',
     layer: 2,
-  });
+  }));
 
   // Apply layer 2 effect if specified
   if (config.layer2Effect) {

@@ -405,18 +405,10 @@ export class AsciiObject {
 
   /**
    * Regenerates the influence mask based on current content and influence.
-   * Applies flip transformations if needed.
    */
   private regenerateMask(): void {
-    let content = this.content;
-
-    // Apply flip transformations
-    if (this.flipHorizontal) {
-      content = this.flipContentHorizontal(content);
-    }
-    if (this.flipVertical) {
-      content = this.flipContentVertical(content);
-    }
+    // Content is already physically transformed by flip operations, use it directly
+    const content = this.content;
 
     // Generate mask
     if (this.influence) {

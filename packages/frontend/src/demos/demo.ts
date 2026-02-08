@@ -31,7 +31,7 @@ let viewportWidth = 80;  // Will be calculated dynamically
 let viewportHeight = 40; // Will be calculated dynamically
 
 // Object types
-type Shape = 'square' | 'circle' | 'triangle' | 'hollow-circle';
+type Shape = 'arrow' | 'bracket-box' | 'diamond' | 'corner-box';
 
 interface AnimatedObject {
   id: string;
@@ -41,12 +41,15 @@ interface AnimatedObject {
   dy: number;
   size: number;
   shape: Shape;
+  hollow: boolean;
   influenceRadius: number;
   layer: number;
+  flipH: boolean;
+  flipV: boolean;
 }
 
 /**
- * Generate the 400x400 boundary box with double-line characters
+ * Generate the boundary box with double-line characters
  */
 function generateBoundaryBox(width: number, height: number): (string | null)[][] {
   const content: (string | null)[][] = [];
@@ -133,10 +136,9 @@ function updateCompositor() {
 
   // Add all objects at current positions
   objects.forEach((obj) => {
-    const char = obj.influenceRadius.toString();
-    const content = generateContent(char, obj.size, obj.shape);
+    const content = generateContent(obj.size, obj.shape, obj.hollow);
 
-    compositor.addObject(new AsciiObject({ id: obj.id,
+    const asciiObj = new AsciiObject({ id: obj.id,
       content,
       position: { x: Math.round(obj.x), y: Math.round(obj.y) },
       color: '#0000ff',
@@ -149,7 +151,17 @@ function updateCompositor() {
           falloff: 'quadratic',
         },
       } : undefined,
-    }));
+    });
+
+    // Apply flips based on current direction
+    if (obj.flipH) {
+      asciiObj.flipHorizontalToggle(true);
+    }
+    if (obj.flipV) {
+      asciiObj.flipVerticalToggle(true);
+    }
+
+    compositor.addObject(asciiObj);
   });
 }
 
@@ -184,59 +196,140 @@ function updateDisplay() {
 /**
  * Generate content for a shape
  */
-function generateContent(char: string, size: number, shape: Shape): (string | null)[][] {
+function generateContent(size: number, shape: Shape, hollow: boolean): (string | null)[][] {
   const content: (string | null)[][] = [];
+  const fillChar = '↗';
 
-  if (shape === 'square') {
+  if (shape === 'arrow') {
+    // Chevron arrow shape pointing right with slash edges
+    const half = Math.floor(size / 2);
     for (let y = 0; y < size; y++) {
       const row: (string | null)[] = [];
+      const distFromCenter = Math.abs(y - half);
+      const width = size - distFromCenter;
+      const leftPad = distFromCenter;
+
       for (let x = 0; x < size; x++) {
-        row.push(char);
-      }
-      content.push(row);
-    }
-  } else if (shape === 'circle') {
-    const radius = size / 2;
-    const center = size / 2 - 0.5;
-    for (let y = 0; y < size; y++) {
-      const row: (string | null)[] = [];
-      for (let x = 0; x < size; x++) {
-        const dx = x - center;
-        const dy = y - center;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        row.push(dist <= radius ? char : null);
-      }
-      content.push(row);
-    }
-  } else if (shape === 'triangle') {
-    const height = Math.ceil((size + 1) / 2);
-    for (let y = 0; y < height; y++) {
-      const row: (string | null)[] = [];
-      const width = Math.min(y * 2 + 1, size);
-      const padding = Math.floor((size - width) / 2);
-      for (let x = 0; x < size; x++) {
-        if (x >= padding && x < padding + width) {
-          row.push(char);
-        } else {
+        if (x < leftPad || x >= leftPad + width) {
           row.push(null);
+        } else if (x === leftPad) {
+          // Left edge - use slashes for top/bottom halves
+          if (y < half) {
+            row.push('/');
+          } else if (y > half) {
+            row.push('\\');
+          } else {
+            row.push('<');
+          }
+        } else if (x === leftPad + width - 1) {
+          // Right tip - use angle bracket at widest, slashes elsewhere
+          if (y === half) {
+            row.push('>');
+          } else if (y < half) {
+            row.push('\\');
+          } else {
+            row.push('/');
+          }
+        } else if (hollow) {
+          row.push(null);
+        } else {
+          row.push(fillChar);
         }
       }
       content.push(row);
     }
-  } else if (shape === 'hollow-circle') {
-    const outerRadius = size / 2;
-    const innerRadius = size / 2 - 1.5;
-    const center = size / 2 - 0.5;
+  } else if (shape === 'bracket-box') {
+    // Rectangular box with brackets and horizontal lines
     for (let y = 0; y < size; y++) {
       const row: (string | null)[] = [];
       for (let x = 0; x < size; x++) {
-        const dx = x - center;
-        const dy = y - center;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= outerRadius && dist >= innerRadius) {
-          row.push(char);
+        if (y === 0 || y === size - 1) {
+          // Top and bottom edges
+          if (x === 0) {
+            row.push('[');
+          } else if (x === size - 1) {
+            row.push(']');
+          } else {
+            row.push('─');
+          }
         } else {
+          // Middle rows
+          if (x === 0) {
+            row.push('[');
+          } else if (x === size - 1) {
+            row.push(']');
+          } else if (hollow) {
+            row.push(null);
+          } else {
+            row.push(fillChar);
+          }
+        }
+      }
+      content.push(row);
+    }
+  } else if (shape === 'diamond') {
+    // Diamond with slashes and angle brackets
+    const half = Math.floor(size / 2);
+    for (let y = 0; y < size; y++) {
+      const row: (string | null)[] = [];
+      const distFromCenter = Math.abs(y - half);
+      const width = size - distFromCenter * 2;
+      const leftPad = distFromCenter;
+
+      for (let x = 0; x < size; x++) {
+        if (x < leftPad || x >= leftPad + width) {
           row.push(null);
+        } else if (x === leftPad) {
+          // Left edge
+          row.push(y < half ? '/' : '\\');
+        } else if (x === leftPad + width - 1) {
+          // Right edge
+          row.push(y < half ? '\\' : '/');
+        } else if (y === half) {
+          // Middle row - use angle brackets
+          if (x === leftPad + 1) {
+            row.push('<');
+          } else if (x === leftPad + width - 2) {
+            row.push('>');
+          } else if (hollow) {
+            row.push(null);
+          } else {
+            row.push(fillChar);
+          }
+        } else {
+          // Interior
+          if (hollow) {
+            row.push(null);
+          } else {
+            row.push(fillChar);
+          }
+        }
+      }
+      content.push(row);
+    }
+  } else if (shape === 'corner-box') {
+    // Box with corner characters and borders
+    for (let y = 0; y < size; y++) {
+      const row: (string | null)[] = [];
+      for (let x = 0; x < size; x++) {
+        if (y === 0 && x === 0) {
+          row.push('╔');
+        } else if (y === 0 && x === size - 1) {
+          row.push('╗');
+        } else if (y === size - 1 && x === 0) {
+          row.push('╚');
+        } else if (y === size - 1 && x === size - 1) {
+          row.push('╝');
+        } else if (y === 0 || y === size - 1) {
+          row.push('═');
+        } else if (x === 0 || x === size - 1) {
+          row.push('║');
+        } else {
+          if (hollow) {
+            row.push(null);
+          } else {
+            row.push(fillChar);
+          }
         }
       }
       content.push(row);
@@ -336,8 +429,7 @@ export function renderDemoDemo(): string {
     layer: -1,
   }));
 
-  // Create 5 layers with 5 objects each (25 total)
-  // Apply lighten effects to lower layers to fade them toward white
+  // Set up 5 layers with lighten effects to fade lower layers
   // This makes front layer (4) dark/saturated and back layer (0) light/faded
   const lightenStrengths = [0.7, 0.5, 0.3, 0.1, 0.0]; // Layer 0-4
 
@@ -350,11 +442,11 @@ export function renderDemoDemo(): string {
         strength: lightenStrengths[layer],
       });
     }
+  }
 
-    // Add 5 objects to this layer
-    for (let i = 0; i < 5; i++) {
-      addObjectToLayer(layer);
-    }
+  // Add 10 random objects across all layers
+  for (let i = 0; i < 10; i++) {
+    createRandomObject();
   }
 
   updateCompositor();
@@ -363,30 +455,19 @@ export function renderDemoDemo(): string {
 }
 
 /**
- * Add a random object to the scene
+ * Create a random object (data only, no compositor/display update)
  */
-function addRandomObject() {
+function createRandomObject() {
   const influenceRadius = Math.floor(Math.random() * 5) + 3; // 3-7
-  const shapes: Shape[] = ['square', 'circle', 'triangle', 'hollow-circle'];
+  const shapes: Shape[] = ['arrow', 'bracket-box', 'diamond', 'corner-box'];
   const shape = shapes[Math.floor(Math.random() * shapes.length)];
 
-  let size: number;
-  if (shape === 'triangle') {
-    const oddSizes = [3, 5];
-    size = oddSizes[Math.floor(Math.random() * oddSizes.length)];
-  } else if (shape === 'hollow-circle') {
-    size = Math.floor(Math.random() * 15) + 6; // 6-20
-  } else {
-    size = Math.floor(Math.random() * 4) + 3; // 3-6
-  }
+  // Random size 5-15
+  const size = Math.floor(Math.random() * 11) + 5;
 
-  addObject(influenceRadius, size, shape);
-}
+  // 50% chance to be hollow
+  const hollow = Math.random() < 0.5;
 
-/**
- * Add an object with specified parameters
- */
-function addObject(influenceRadius: number, size: number, shape: Shape) {
   const id = `obj${nextId++}`;
 
   // Random position within world boundaries (away from edges)
@@ -402,42 +483,11 @@ function addObject(influenceRadius: number, size: number, shape: Shape) {
   // Random layer 0-4 (matching our 5 layer setup)
   const layer = Math.floor(Math.random() * 5);
 
-  objects.push({ id, influenceRadius, layer, x, y, dx, dy, size, shape });
-  updateCompositor();
-  updateDisplay();
-}
+  // Initialize flip state based on initial direction
+  const flipH = dx < 0;
+  const flipV = dy > 0;
 
-/**
- * Add an object to a specific layer
- */
-function addObjectToLayer(layer: number) {
-  const influenceRadius = Math.floor(Math.random() * 5) + 3; // 3-7
-  const shapes: Shape[] = ['square', 'circle', 'triangle', 'hollow-circle'];
-  const shape = shapes[Math.floor(Math.random() * shapes.length)];
-
-  let size: number;
-  if (shape === 'triangle') {
-    const oddSizes = [3, 5];
-    size = oddSizes[Math.floor(Math.random() * oddSizes.length)];
-  } else if (shape === 'hollow-circle') {
-    size = Math.floor(Math.random() * 15) + 6; // 6-20
-  } else {
-    size = Math.floor(Math.random() * 4) + 3; // 3-6
-  }
-
-  const id = `obj${nextId++}`;
-
-  // Random position within world boundaries (away from edges)
-  const margin = size + 2;
-  const x = Math.floor(Math.random() * (WORLD_WIDTH - margin * 2)) + margin;
-  const y = Math.floor(Math.random() * (WORLD_HEIGHT - margin * 2)) + margin;
-
-  // Random direction (normalized)
-  const angle = Math.random() * Math.PI * 2;
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
-
-  objects.push({ id, influenceRadius, layer, x, y, dx, dy, size, shape });
+  objects.push({ id, influenceRadius, layer, x, y, dx, dy, size, shape, hollow, flipH, flipV });
 }
 
 /**
@@ -457,6 +507,13 @@ function animationStep() {
       obj.dy = -obj.dy;
       obj.y += obj.dy * 2; // Move back into bounds
     }
+
+    // Update flip state based on direction
+    // Moving right and up is "normal" (no flip)
+    // Moving left = flip horizontal
+    // Moving down = flip vertical
+    obj.flipH = obj.dx < 0;
+    obj.flipV = obj.dy > 0;
   });
 
   updateCompositor();
@@ -583,7 +640,9 @@ function animationStep() {
 };
 
 (window as any).demoAnimationAddRandom = () => {
-  addRandomObject();
+  createRandomObject();
+  updateCompositor();
+  updateDisplay();
 };
 
 (window as any).demoAnimationRemoveRandom = () => {

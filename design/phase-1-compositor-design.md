@@ -520,6 +520,50 @@ Layer effects apply uniform color transformations to entire layers. Unlike influ
 - Depth fog effects (lighten distant layers)
 - Color grading for entire scenes
 
+### 5. Character Mirroring
+
+**Decision:** Optional character mirroring during flip operations.
+
+When objects are flipped horizontally or vertically, characters can optionally be mirrored to their directional equivalents. This creates more natural-looking flips for directional characters.
+
+**Key features:**
+- Opt-in via boolean parameter on flip methods
+- Sequential application: horizontal mirror applied first, then vertical
+- Unmapped characters pass through unchanged
+- Default behavior (no mirroring) preserves backward compatibility
+
+**Character mappings:**
+
+Horizontal mirroring pairs:
+- ASCII brackets: `< >`, `( )`, `[ ]`, `{ }`
+- ASCII slashes: `/ \`
+- Box drawing: `╔ ╗`, `╚ ╝`, `┌ ┐`, `└ ┘`, `├ ┤`, `╟ ╢`, `╞ ╡`
+- Arrows: `← →`, `↖ ↗`, `↙ ↘`
+
+Vertical mirroring pairs:
+- ASCII slashes: `/ \`
+- ASCII carets: `^ v`
+- Box drawing: `╔ ╚`, `╗ ╝`, `┌ └`, `┐ ┘`, `┬ ┴`, `╤ ╧`, `╥ ╨`
+- Arrows: `↑ ↓`, `↖ ↙`, `↗ ↘`
+
+**Sequential application for combined flips:**
+
+When both horizontal and vertical flips are active, mirrors are applied sequentially:
+1. Apply horizontal mirror (if flipHorizontal is true)
+2. Apply vertical mirror (if flipVertical is true)
+
+Example: `╔` with both flips becomes `╝`:
+- Horizontal mirror: `╔` → `╗`
+- Vertical mirror: `╗` → `╝`
+
+This approach ensures correct transformations for all four states (original, H-flipped, V-flipped, both-flipped).
+
+**Rationale:**
+- Creates natural-looking flips for arrows, brackets, and box-drawing characters
+- Opt-in design preserves existing behavior and avoids breaking changes
+- Sequential application is simple and mathematically correct
+- Character maps can be extended over time without API changes
+
 ## Future Experiments
 
 Potential enhancements for future consideration:
@@ -537,14 +581,149 @@ Potential enhancements for future consideration:
    - Variable strength across viewport (linear/radial gradients)
    - Useful for vignetting, spotlight effects
 
+## Character Mirroring - Implementation Checklist
+
+### Overview
+Status: NOT STARTED
+Add optional character mirroring to flip operations, allowing directional characters to transform naturally during horizontal and vertical flips.
+
+### Success Criteria
+- All existing 153 tests continue to pass
+- Character mirroring is opt-in (default false preserves current behavior)
+- At least 30 character pairs mapped (ASCII + common Unicode box drawing)
+- Sequential application works correctly for combined H+V flips
+- All new functionality has comprehensive test coverage
+- API documentation updated with examples
+- Design documentation includes character mirroring decision
+
+---
+
+### Phase 0: Design and Planning
+- [x] Add character mirroring design decision to phase-1-compositor-design.md
+- [x] Update phase-1-compositor-api.md with new optional parameters
+- [x] Document character mapping tables in design doc
+
+**REVIEW GATE:** Design documentation complete
+
+---
+
+### Phase 1: Tests First (TDD)
+
+#### Character Mapping Tests
+- [x] Test horizontal mirror map completeness (all pairs bidirectional)
+- [x] Test vertical mirror map completeness (all pairs bidirectional)
+- [x] Test unmapped characters pass through unchanged
+- [x] Test null cells remain null after mirroring
+
+#### Horizontal Flip with Mirroring
+- [x] Test single character mirrored correctly (each ASCII pair)
+- [x] Test single character mirrored correctly (box drawing pairs)
+- [x] Test multi-character content with mixed mapped/unmapped chars
+- [x] Test toggle twice returns to original (positions and characters)
+- [x] Test default mirrorChars=false preserves current behavior
+
+#### Vertical Flip with Mirroring
+- [x] Test single character mirrored correctly (each pair)
+- [x] Test multi-character content with mixed mapped/unmapped chars
+- [x] Test toggle twice returns to original
+- [x] Test default mirrorChars=false preserves current behavior
+
+#### Combined Flip with Mirroring
+- [x] Test sequential application: H then V
+- [x] Test all four states (none, H, V, both) for corner chars
+- [x] Test box corners: `╔` → `╗` → `╝` → `╚` → `╔`
+- [x] Test slashes: `/` → `\` → `/` → `\` → `/`
+- [x] Test arrows with diagonal directions
+
+#### Integration Tests
+- [x] Test flipHorizontalToggle(true) then flipVerticalToggle(true)
+- [x] Test setFlipHorizontal(true, true) with existing object
+- [x] Test object with influence maintains mask after mirrored flip
+- [x] Test dirty bounds tracking with mirrored flips
+- [x] Test rendering output contains mirrored characters
+
+**REVIEW GATE:** All tests written and failing appropriately
+
+---
+
+### Phase 2: Implementation
+
+#### Add Character Maps to AsciiObject.ts
+- [x] Define HORIZONTAL_MIRROR_MAP constant (30+ pairs)
+- [x] Define VERTICAL_MIRROR_MAP constant (20+ pairs)
+- [x] Add applyHorizontalMirror() and applyVerticalMirror() private helper methods
+
+#### Update Flip Methods
+- [x] Modify flipHorizontalToggle(mirrorChars?: boolean)
+- [x] Modify flipVerticalToggle(mirrorChars?: boolean)
+- [x] Modify setFlipHorizontal(flipped: boolean, mirrorChars?: boolean)
+- [x] Modify setFlipVertical(flipped: boolean, mirrorChars?: boolean)
+- [x] Apply character mirroring during content transformation
+
+#### Verify All Tests Pass
+- [x] Run full test suite (153 existing + 37 new tests = 190 total)
+- [x] Fix any regressions
+- [x] Verify performance acceptable (no significant slowdown)
+
+**REVIEW GATE:** All tests passing, implementation complete
+
+---
+
+### Phase 3: Documentation
+
+#### API Documentation
+- [x] Update phase-1-compositor-api.md flip method signatures
+- [x] Add code examples showing mirrored vs non-mirrored flips
+- [x] Document character mapping tables
+- [x] Add usage notes about sequential application
+
+#### Design Documentation
+- [x] Verify character mirroring design decision is complete
+- [x] Add examples of four-state transformations
+- [x] Document future expansion approach (adding more pairs)
+
+**REVIEW GATE:** Documentation complete
+
+---
+
+### Phase 4: Frontend Demo (Optional)
+
+#### Update Flip Transform Demo
+- [ ] Add checkbox: "Mirror characters during flip"
+- [ ] Show side-by-side comparison when enabled
+- [ ] Include example objects with directional characters
+- [ ] Add arrows and box corners to demo objects
+
+**REVIEW GATE:** Manual testing complete
+
+---
+
+### Final Checklist
+- [x] All 153 existing tests pass
+- [x] All new tests pass (37 new tests added)
+- [x] No performance regression (opt-in feature, default behavior unchanged)
+- [x] API documentation updated
+- [x] Design documentation updated
+- [ ] Frontend demo enhanced (optional)
+- [x] Ready for commit
+
 ## Related Documents
 
 - [phase-1-compositor-api.md](phase-1-compositor-api.md) - TypeScript API specification
 - [performance-optimization.md](performance-optimization.md) - Performance optimization analysis and results
 
-## Next Steps
+## Status
 
-1. Write comprehensive test suite (TDD)
-2. Implement core compositor
-3. Benchmark and optimize
-4. Build frontend examples
+**Phase 1 Core Compositor:** COMPLETE
+- 153 comprehensive tests (all passing)
+- Full implementation with all features
+- Performance optimized (24-101% improvement)
+- 9 interactive frontend demos
+- Complete API and design documentation
+
+**Character Mirroring Enhancement:** COMPLETE
+- 37 comprehensive tests (all passing)
+- Full implementation with horizontal and vertical mirror maps
+- Backward compatible (opt-in via mirrorChars parameter, default false)
+- Complete API and design documentation
+- Ready for commit

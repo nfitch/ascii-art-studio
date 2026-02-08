@@ -7,6 +7,60 @@
  * @module @ascii-art-studio/compositor
  */
 
+/** Horizontal character mirror map for flip operations */
+const HORIZONTAL_MIRROR_MAP: Record<string, string> = {
+  // ASCII brackets
+  '<': '>', '>': '<',
+  '(': ')', ')': '(',
+  '[': ']', ']': '[',
+  '{': '}', '}': '{',
+  // ASCII slashes
+  '/': '\\', '\\': '/',
+  // Box drawing double - corners
+  '╔': '╗', '╗': '╔',
+  '╚': '╝', '╝': '╚',
+  // Box drawing double - T-junctions
+  '╟': '╢', '╢': '╟',
+  '╞': '╡', '╡': '╞',
+  // Box drawing light - corners
+  '┌': '┐', '┐': '┌',
+  '└': '┘', '┘': '└',
+  // Box drawing light - T-junctions
+  '├': '┤', '┤': '├',
+  // Box drawing light - rounded corners
+  '╭': '╮', '╮': '╭',
+  '╰': '╯', '╯': '╰',
+  // Arrows
+  '←': '→', '→': '←',
+  '↖': '↗', '↗': '↖',
+  '↙': '↘', '↘': '↙',
+  '⇐': '⇒', '⇒': '⇐',
+};
+
+/** Vertical character mirror map for flip operations */
+const VERTICAL_MIRROR_MAP: Record<string, string> = {
+  // ASCII slashes
+  '/': '\\', '\\': '/',
+  // ASCII carets
+  '^': 'v', 'v': '^',
+  // Box drawing double - corners
+  '╔': '╚', '╚': '╔',
+  '╗': '╝', '╝': '╗',
+  // Box drawing double - T-junctions
+  '╤': '╧', '╧': '╤',
+  '╥': '╨', '╨': '╥',
+  // Box drawing light - corners
+  '┌': '└', '└': '┌',
+  '┐': '┘', '┘': '┐',
+  // Box drawing light - T-junctions
+  '┬': '┴', '┴': '┬',
+  // Arrows
+  '↑': '↓', '↓': '↑',
+  '↖': '↙', '↙': '↖',
+  '↗': '↘', '↘': '↗',
+  '⇑': '⇓', '⇓': '⇑',
+};
+
 /** Represents a single cell in the ASCII grid. null = transparent, string = visible character */
 export type Cell = string | null;
 
@@ -276,13 +330,23 @@ export class AsciiObject {
   /**
    * Toggles horizontal flip.
    * Invalidates mask and marks bounds dirty.
+   *
+   * @param mirrorChars - If true, applies character mirroring during flip (default: false)
    */
-  flipHorizontalToggle(): void {
+  flipHorizontalToggle(mirrorChars: boolean = false): void {
     // Mark bounds dirty before flip
     this._dirtyBounds = this.unionBounds(this._dirtyBounds, this.getBounds());
 
     // Physically flip the content horizontally
-    this.content = this.content.map(row => [...row].reverse());
+    if (mirrorChars) {
+      // Flip positions and apply horizontal character mirroring only
+      this.content = this.content.map(row =>
+        [...row].reverse().map(cell => this.applyHorizontalMirror(cell))
+      );
+    } else {
+      // Flip positions only (current behavior)
+      this.content = this.content.map(row => [...row].reverse());
+    }
 
     // Toggle flag
     this.flipHorizontal = !this.flipHorizontal;
@@ -299,13 +363,23 @@ export class AsciiObject {
   /**
    * Toggles vertical flip.
    * Invalidates mask and marks bounds dirty.
+   *
+   * @param mirrorChars - If true, applies character mirroring during flip (default: false)
    */
-  flipVerticalToggle(): void {
+  flipVerticalToggle(mirrorChars: boolean = false): void {
     // Mark bounds dirty before flip
     this._dirtyBounds = this.unionBounds(this._dirtyBounds, this.getBounds());
 
     // Physically flip the content vertically
-    this.content = [...this.content].reverse();
+    if (mirrorChars) {
+      // Flip positions and apply vertical character mirroring only
+      this.content = [...this.content].reverse().map(row =>
+        row.map(cell => this.applyVerticalMirror(cell))
+      );
+    } else {
+      // Flip positions only (current behavior)
+      this.content = [...this.content].reverse();
+    }
 
     // Toggle flag
     this.flipVertical = !this.flipVertical;
@@ -323,10 +397,11 @@ export class AsciiObject {
    * Sets horizontal flip to specific state.
    *
    * @param flipped - Target flip state
+   * @param mirrorChars - If true, applies character mirroring when flipping (default: false)
    */
-  setFlipHorizontal(flipped: boolean): void {
+  setFlipHorizontal(flipped: boolean, mirrorChars: boolean = false): void {
     if (this.flipHorizontal !== flipped) {
-      this.flipHorizontalToggle();
+      this.flipHorizontalToggle(mirrorChars);
     }
   }
 
@@ -334,10 +409,11 @@ export class AsciiObject {
    * Sets vertical flip to specific state.
    *
    * @param flipped - Target flip state
+   * @param mirrorChars - If true, applies character mirroring when flipping (default: false)
    */
-  setFlipVertical(flipped: boolean): void {
+  setFlipVertical(flipped: boolean, mirrorChars: boolean = false): void {
     if (this.flipVertical !== flipped) {
-      this.flipVerticalToggle();
+      this.flipVerticalToggle(mirrorChars);
     }
   }
 
@@ -418,6 +494,32 @@ export class AsciiObject {
     }
 
     this._maskInvalidated = false;
+  }
+
+  /**
+   * Applies horizontal character mirroring.
+   *
+   * @param cell - Character to mirror (or null)
+   * @returns Horizontally mirrored character (or null if input was null)
+   */
+  private applyHorizontalMirror(cell: Cell): Cell {
+    if (cell === null) {
+      return null;
+    }
+    return HORIZONTAL_MIRROR_MAP[cell] ?? cell;
+  }
+
+  /**
+   * Applies vertical character mirroring.
+   *
+   * @param cell - Character to mirror (or null)
+   * @returns Vertically mirrored character (or null if input was null)
+   */
+  private applyVerticalMirror(cell: Cell): Cell {
+    if (cell === null) {
+      return null;
+    }
+    return VERTICAL_MIRROR_MAP[cell] ?? cell;
   }
 
   /**

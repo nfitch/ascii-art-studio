@@ -2651,4 +2651,575 @@ describe('Compositor', () => {
       expect(output.colors[1][1]).toBe('#c0c0c0');
     });
   });
+
+  describe('Character Mirroring', () => {
+    describe('Horizontal Mirror Map', () => {
+      test('ASCII brackets mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '>', '(', ')', '[', ']', '{', '}']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['{', '}', '[', ']', '(', ')', '<', '>']]);
+      });
+
+      test('ASCII slashes mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['/', '\\']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['/', '\\']]);
+      });
+
+      test('box drawing corners mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['╔', '╗', '╚', '╝']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['╚', '╝', '╔', '╗']]);
+      });
+
+      test('box drawing light corners mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['┌', '┐', '└', '┘']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['└', '┘', '┌', '┐']]);
+      });
+
+      test('box drawing T-junctions mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['├', '┤', '╟', '╢', '╞', '╡']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['╞', '╡', '╟', '╢', '├', '┤']]);
+      });
+
+      test('arrows mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['←', '→', '↖', '↗', '↙', '↘']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['↙', '↘', '↖', '↗', '←', '→']]);
+      });
+
+      test('unmapped characters pass through unchanged', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['#', 'X', 'a', '1', '@']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['@', '1', 'a', 'X', '#']]);
+      });
+
+      test('null cells remain null', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', null, '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['<', null, '>']]);
+      });
+
+      test('mixed mapped and unmapped characters', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '#', '>', 'X']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['X', '<', '#', '>']]);
+      });
+    });
+
+    describe('Vertical Mirror Map', () => {
+      test('ASCII slashes mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['/'], ['\\']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['/'], ['\\']]);
+      });
+
+      test('ASCII carets mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['^'], ['v']]);
+      });
+
+      test('box drawing corners mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['╔', '╗'], ['╚', '╝']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['╔', '╗'], ['╚', '╝']]);
+      });
+
+      test('box drawing light corners mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['┌', '┐'], ['└', '┘']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['┌', '┐'], ['└', '┘']]);
+      });
+
+      test('box drawing T-junctions mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['┬', '╤', '╥'], ['┴', '╧', '╨']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['┬', '╤', '╥'], ['┴', '╧', '╨']]);
+      });
+
+      test('arrows mirror correctly', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['↑', '↖', '↗'], ['↓', '↙', '↘']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['↑', '↖', '↗'], ['↓', '↙', '↘']]);
+      });
+
+      test('unmapped characters pass through unchanged', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['#'], ['X'], ['a']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['a'], ['X'], ['#']]);
+      });
+
+      test('null cells remain null', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], [null], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['^'], [null], ['v']]);
+      });
+    });
+
+    describe('Horizontal Flip with Mirroring', () => {
+      test('default mirrorChars=false preserves current behavior', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '-', '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle();
+
+        expect(obj.content).toEqual([['>', '-', '<']]);
+        expect(obj.flipHorizontal).toBe(true);
+      });
+
+      test('mirrorChars=true transforms characters', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '-', '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['<', '-', '>']]);
+        expect(obj.flipHorizontal).toBe(true);
+      });
+
+      test('toggle twice returns to original with mirroring', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '-', '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+        obj.flipHorizontalToggle(true);
+
+        expect(obj.content).toEqual([['<', '-', '>']]);
+        expect(obj.flipHorizontal).toBe(false);
+      });
+
+      test('regenerates influence mask after mirrored flip', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<']],
+          position: { x: 0, y: 0 },
+          influence: {
+            radius: 1,
+            transform: { type: 'lighten', strength: 0.5, falloff: 'linear' },
+          },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        const mask = obj.getInfluenceMask();
+        expect(mask).toBeDefined();
+        expect(mask.length).toBeGreaterThan(0);
+      });
+
+      test('marks dirty regions after mirrored flip', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.clearDirty();
+        expect(obj.isDirty()).toBe(false);
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.isDirty()).toBe(true);
+      });
+    });
+
+    describe('Vertical Flip with Mirroring', () => {
+      test('default mirrorChars=false preserves current behavior', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], ['|'], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle();
+
+        expect(obj.content).toEqual([['v'], ['|'], ['^']]);
+        expect(obj.flipVertical).toBe(true);
+      });
+
+      test('mirrorChars=true transforms characters', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], ['|'], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['^'], ['|'], ['v']]);
+        expect(obj.flipVertical).toBe(true);
+      });
+
+      test('toggle twice returns to original with mirroring', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], ['|'], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipVerticalToggle(true);
+        obj.flipVerticalToggle(true);
+
+        expect(obj.content).toEqual([['^'], ['|'], ['v']]);
+        expect(obj.flipVertical).toBe(false);
+      });
+    });
+
+    describe('Combined Flip with Mirroring', () => {
+      test('sequential application: H then V for corner chars', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['╔']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['╗']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['╝']]);
+      });
+
+      test('all four states for box corners', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['╔']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+
+        expect(obj.content).toEqual([['╔']]);
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['╗']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['╝']]);
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['╚']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['╔']]);
+      });
+
+      test('slashes with combined flips', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['/']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['\\']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['/']]);
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['\\']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['/']]);
+      });
+
+      test('arrows with diagonal directions', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['↗']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['↖']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['↙']]);
+
+        obj.flipHorizontalToggle(true);
+        expect(obj.content).toEqual([['↘']]);
+
+        obj.flipVerticalToggle(true);
+        expect(obj.content).toEqual([['↗']]);
+      });
+    });
+
+    describe('setFlipHorizontal with Mirroring', () => {
+      test('sets flip state with mirroring', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.setFlipHorizontal(true, true);
+
+        expect(obj.flipHorizontal).toBe(true);
+        expect(obj.content).toEqual([['<', '>']]);
+      });
+
+      test('no-op when state unchanged', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.clearDirty();
+
+        obj.setFlipHorizontal(false, true);
+
+        expect(obj.isDirty()).toBe(false);
+      });
+
+      test('flips when state changes', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '>']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+        expect(obj.flipHorizontal).toBe(true);
+
+        obj.setFlipHorizontal(false, true);
+
+        expect(obj.flipHorizontal).toBe(false);
+        expect(obj.content).toEqual([['<', '>']]);
+      });
+    });
+
+    describe('setFlipVertical with Mirroring', () => {
+      test('sets flip state with mirroring', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.setFlipVertical(true, true);
+
+        expect(obj.flipVertical).toBe(true);
+        expect(obj.content).toEqual([['^'], ['v']]);
+      });
+
+      test('no-op when state unchanged', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['^'], ['v']],
+          position: { x: 0, y: 0 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.clearDirty();
+
+        obj.setFlipVertical(false, true);
+
+        expect(obj.isDirty()).toBe(false);
+      });
+    });
+
+    describe('Integration Tests', () => {
+      test('object with influence maintains mask after mirrored flip', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '>']],
+          position: { x: 0, y: 0 },
+          influence: {
+            radius: 2,
+            transform: { type: 'lighten', strength: 0.5, falloff: 'quadratic' },
+          },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+        obj.flipVerticalToggle(true);
+
+        const mask = obj.getInfluenceMask();
+        expect(mask).toBeDefined();
+        expect(mask.length).toBeGreaterThan(0);
+      });
+
+      test('rendering output contains mirrored characters', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<', '>', '╔']],
+          position: { x: 0, y: 0 },
+          color: '#ffffff',
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.flipHorizontalToggle(true);
+
+        const output = compositor.render({ x: 0, y: 0, width: 3, height: 1 });
+        expect(output.characters[0]).toEqual(['╗', '<', '>']);
+      });
+
+      test('dirty bounds tracking with mirrored flips', () => {
+        const compositor = new Compositor();
+        addObjectLegacy(compositor, 'obj', {
+          content: [['<']],
+          position: { x: 5, y: 5 },
+        });
+
+        const obj = compositor.getObject('obj');
+        obj.clearDirty();
+
+        obj.flipHorizontalToggle(true);
+
+        const dirtyBounds = obj.getDirtyBounds();
+        expect(dirtyBounds).not.toBeNull();
+        expect(dirtyBounds!.minX).toBe(5);
+        expect(dirtyBounds!.minY).toBe(5);
+      });
+    });
+  });
 });

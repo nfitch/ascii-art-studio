@@ -36,17 +36,14 @@ function addBackgroundPattern() {
 }
 
 function createArrowShape(): (string | null)[][] {
-  // Create an asymmetric arrow - different on all sides
-  // Top has longer point, bottom is flat, left is thick, right tapers
+  // Create a shape with directional characters that mirror
+  // Uses arrows, brackets, slashes, and box drawing characters
   return [
-    [null, null, null, '>', '>', '>', '>', '>', '>'],
-    [null, null, null, null, '>', '>', '>', '>', '>'],
-    [null, null, null, null, null, '>', '>', '>', '>'],
-    ['>', '>', '>', '>', '>', '>', '>', '>', '>'],
-    ['>', '>', '>', '>', '>', '>', '>', '>', '>'],
-    ['>', '>', '>', '>', '>', '>', '>', '>', '>'],
-    ['>', '>', '>', '>', '>', '>', '>', null, null],
-    ['>', '>', '>', '>', '>', '>', null, null, null],
+    [null, null, '╔', '═', '═', '═', '╗', null, null],
+    [null, '/', '║', '→', '→', '→', '║', '\\', null],
+    ['(', '<', '║', '>', '>', '>', '║', '>', ')'],
+    ['[', '<', '╚', '═', '═', '═', '╝', '>', ']'],
+    [null, '\\', null, '↓', null, '↓', null, '/', null],
   ];
 }
 
@@ -77,12 +74,12 @@ function updateObject() {
   // Apply flips based on current state
   const obj = compositor.getObject('arrow');
   if (obj) {
-    // Flip to match desired state
+    // Flip to match desired state with character mirroring
     if (flipH !== obj.flipHorizontal) {
-      compositor.getObject('arrow').flipHorizontalToggle();
+      compositor.getObject('arrow').flipHorizontalToggle(true);
     }
     if (flipV !== obj.flipVertical) {
-      compositor.getObject('arrow').flipVerticalToggle();
+      compositor.getObject('arrow').flipVerticalToggle(true);
     }
   }
 }
@@ -95,7 +92,8 @@ function getHtml(): string {
       <h2>Flip & Transform</h2>
 
       <div class="demo-description">
-        Demonstrates horizontal and vertical flip operations on an asymmetric arrow shape.
+        Demonstrates horizontal and vertical flip operations with character mirroring.
+        Directional characters like arrows, brackets, and box corners mirror to their opposites.
         The flip operations transform both the object's content and its influence gradient.
       </div>
 

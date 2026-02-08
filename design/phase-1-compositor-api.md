@@ -25,12 +25,8 @@ class Compositor {
   addObject(id: string, options: AddObjectOptions): void;
   removeObject(id: string): void;
   moveObject(id: string, position: Position): void;
-  flipHorizontal(id: string): void;
-  flipVertical(id: string): void;
-  setFlipHorizontal(id: string, flipped: boolean): void;
-  setFlipVertical(id: string, flipped: boolean): void;
-  getObject(id: string): CompositorObject;
-  listObjects(): CompositorObject[];
+  getObject(id: string): AsciiObject;
+  listObjects(): AsciiObject[];
 
   // Layer effects - uniform color transformations applied to entire layers
   setLayerEffect(layer: number, effect: LayerEffect | null): void;
@@ -286,121 +282,147 @@ compositor.moveObject('obj1', {x: 10, y: 20});
 **Errors thrown:**
 - `Error: Object with id '${id}' not found`
 
-### flipHorizontal
+### flipHorizontalToggle
 
 ```typescript
-flipHorizontal(id: string): void
+flipHorizontalToggle(mirrorChars?: boolean): void
 ```
 
+Called on AsciiObject returned from `getObject()`.
+
 **Parameters:**
-- `id` - Object identifier
+- `mirrorChars` - Optional. If true, applies character mirroring during flip (default: false)
 
 **Behavior:**
 - Toggles horizontal flip state (left-to-right mirror)
 - Flips object content matrix horizontally
+- If `mirrorChars` is true, transforms characters using horizontal mirror map (`<` ↔ `>`, `(` ↔ `)`, etc.)
 - Regenerates influence mask (if object has influence)
 - Marks old and new regions as dirty (including influence areas)
-- Throws if object ID not found
 
 **Example:**
 ```typescript
-compositor.flipHorizontal('obj1');  // Toggle flip state
+// Without character mirroring (default)
+const obj = compositor.getObject('obj1');
+obj.flipHorizontalToggle();  // Positions flip, characters stay same
+
+// With character mirroring
+const obj2 = compositor.getObject('obj2');
+obj2.flipHorizontalToggle(true);  // Positions AND characters flip
 ```
 
-**Errors thrown:**
-- `Error: Object with id '${id}' not found`
+**Character mirroring:**
+When `mirrorChars` is true, directional characters are replaced with their mirror equivalents:
+- ASCII brackets: `<` ↔ `>`, `(` ↔ `)`, `[` ↔ `]`, `{` ↔ `}`
+- ASCII slashes: `/` ↔ `\`
+- Box drawing: `╔` ↔ `╗`, `╚` ↔ `╝`, `┌` ↔ `┐`, `└` ↔ `┘`, `├` ↔ `┤`
+- Arrows: `←` ↔ `→`, `↖` ↔ `↗`, `↙` ↔ `↘`
+- Unmapped characters pass through unchanged
 
-### flipVertical
+### flipVerticalToggle
 
 ```typescript
-flipVertical(id: string): void
+flipVerticalToggle(mirrorChars?: boolean): void
 ```
 
+Called on AsciiObject returned from `getObject()`.
+
 **Parameters:**
-- `id` - Object identifier
+- `mirrorChars` - Optional. If true, applies character mirroring during flip (default: false)
 
 **Behavior:**
 - Toggles vertical flip state (top-to-bottom mirror)
 - Flips object content matrix vertically
+- If `mirrorChars` is true, transforms characters using vertical mirror map (`^` ↔ `v`, `/` ↔ `\`, etc.)
 - Regenerates influence mask (if object has influence)
 - Marks old and new regions as dirty (including influence areas)
-- Throws if object ID not found
 
 **Example:**
 ```typescript
-compositor.flipVertical('obj1');  // Toggle flip state
+// Without character mirroring (default)
+const obj = compositor.getObject('obj1');
+obj.flipVerticalToggle();  // Positions flip, characters stay same
+
+// With character mirroring
+const obj2 = compositor.getObject('obj2');
+obj2.flipVerticalToggle(true);  // Positions AND characters flip
 ```
 
-**Errors thrown:**
-- `Error: Object with id '${id}' not found`
+**Character mirroring:**
+When `mirrorChars` is true, directional characters are replaced with their mirror equivalents:
+- ASCII slashes: `/` ↔ `\`
+- ASCII carets: `^` ↔ `v`
+- Box drawing: `╔` ↔ `╚`, `╗` ↔ `╝`, `┌` ↔ `└`, `┐` ↔ `┘`, `┬` ↔ `┴`
+- Arrows: `↑` ↔ `↓`, `↖` ↔ `↙`, `↗` ↔ `↘`
+- Unmapped characters pass through unchanged
 
 ### setFlipHorizontal
 
 ```typescript
-setFlipHorizontal(id: string, flipped: boolean): void
+setFlipHorizontal(flipped: boolean, mirrorChars?: boolean): void
 ```
 
+Called on AsciiObject returned from `getObject()`.
+
 **Parameters:**
-- `id` - Object identifier
 - `flipped` - Desired flip state
+- `mirrorChars` - Optional. If true, applies character mirroring when flipping (default: false)
 
 **Behavior:**
 - Sets horizontal flip to specific state
 - If state unchanged, no-op (no dirty marking)
-- If state changes, flips content and regenerates influence mask
-- Marks old and new regions as dirty (including influence areas)
-- Throws if object ID not found
+- If state changes, calls `flipHorizontalToggle(mirrorChars)` to flip content
+- Regenerates influence mask (if object has influence and state changed)
+- Marks old and new regions as dirty (if state changed)
 
 **Example:**
 ```typescript
-compositor.setFlipHorizontal('obj1', true);   // Ensure flipped
-compositor.setFlipHorizontal('obj1', false);  // Ensure not flipped
+const obj = compositor.getObject('obj1');
+obj.setFlipHorizontal(true);         // Ensure flipped (no character mirroring)
+obj.setFlipHorizontal(false, true);  // Ensure not flipped (with character mirroring if flipping)
 ```
-
-**Errors thrown:**
-- `Error: Object with id '${id}' not found`
 
 ### setFlipVertical
 
 ```typescript
-setFlipVertical(id: string, flipped: boolean): void
+setFlipVertical(flipped: boolean, mirrorChars?: boolean): void
 ```
 
+Called on AsciiObject returned from `getObject()`.
+
 **Parameters:**
-- `id` - Object identifier
 - `flipped` - Desired flip state
+- `mirrorChars` - Optional. If true, applies character mirroring when flipping (default: false)
 
 **Behavior:**
 - Sets vertical flip to specific state
 - If state unchanged, no-op (no dirty marking)
-- If state changes, flips content and regenerates influence mask
-- Marks old and new regions as dirty (including influence areas)
-- Throws if object ID not found
+- If state changes, calls `flipVerticalToggle(mirrorChars)` to flip content
+- Regenerates influence mask (if object has influence and state changed)
+- Marks old and new regions as dirty (if state changed)
 
 **Example:**
 ```typescript
-compositor.setFlipVertical('obj1', true);   // Ensure flipped
-compositor.setFlipVertical('obj1', false);  // Ensure not flipped
+const obj = compositor.getObject('obj1');
+obj.setFlipVertical(true);         // Ensure flipped (no character mirroring)
+obj.setFlipVertical(false, true);  // Ensure not flipped (with character mirroring if flipping)
 ```
-
-**Errors thrown:**
-- `Error: Object with id '${id}' not found`
 
 ### getObject
 
 ```typescript
-getObject(id: string): CompositorObject
+getObject(id: string): AsciiObject
 ```
 
 **Parameters:**
 - `id` - Object identifier
 
 **Returns:**
-- Readonly view of object (deep clone to prevent mutation)
+- AsciiObject instance (mutable - can call methods to modify state)
 
 **Behavior:**
-- Returns object details with normalized content (always Cell[][])
-- Content is immutable - modifications won't affect compositor
+- Returns reference to object in scene graph
+- Object can be modified via method calls (setPosition, flipHorizontalToggle, etc.)
 - Throws if object ID not found
 
 **Example:**
@@ -411,30 +433,80 @@ console.log(obj.color);           // '#ff0000'
 console.log(obj.layer);           // 1
 console.log(obj.flipHorizontal);  // false
 console.log(obj.flipVertical);    // true
+
+// Modify object
+obj.setPosition(10, 10);
+obj.flipHorizontalToggle(true);   // Flip with character mirroring
 ```
 
 **Errors thrown:**
 - `Error: Object with id '${id}' not found`
 
+### Combined Flips with Character Mirroring
+
+When both horizontal and vertical flips are applied with character mirroring, the transformations are applied sequentially:
+
+1. Horizontal mirror (if flipHorizontal is true)
+2. Vertical mirror (if flipVertical is true)
+
+This produces correct four-state transformations for all directional characters.
+
+**Example - Box Corner Transformations:**
+```typescript
+const obj = compositor.getObject('corner');
+// Original content: [['╔']]
+
+obj.flipHorizontalToggle(true);
+// After H-flip: [['╗']]
+
+obj.flipVerticalToggle(true);
+// After V-flip: [['╝']]  (vertical mirror of ╗)
+
+obj.flipHorizontalToggle(true);
+// After H-flip again: [['╚']]  (horizontal mirror of ╝)
+
+obj.flipVerticalToggle(true);
+// After V-flip again: [['╔']]  (back to original)
+```
+
+**Example - Slash Transformations:**
+```typescript
+const obj = compositor.getObject('slash');
+// Original content: [['/']]
+
+obj.flipHorizontalToggle(true);
+// After H-flip: [['\']]
+
+obj.flipVerticalToggle(true);
+// After V-flip: [['/']]  (back to original - slashes are symmetric)
+```
+
 ### listObjects
 
 ```typescript
-listObjects(): CompositorObject[]
+listObjects(): AsciiObject[]
 ```
 
 **Returns:**
-- Array of all objects (readonly clones)
+- Array of all AsciiObject instances (mutable references)
 
 **Behavior:**
-- Returns objects in no particular order (not sorted by layer)
-- Each object is a deep clone to prevent mutation
+- Returns references to all objects in scene graph
+- Objects in no particular order (not sorted by layer)
 - Empty array if no objects
+- Objects can be modified via method calls
 
 **Example:**
 ```typescript
 const objects = compositor.listObjects();
 console.log(`Total objects: ${objects.length}`);
-objects.forEach(obj => console.log(obj.id, obj.layer));
+objects.forEach(obj => {
+  console.log(obj.id, obj.layer);
+  // Can call methods on objects
+  if (obj.id.startsWith('arrow')) {
+    obj.flipHorizontalToggle(true);  // Flip arrows with character mirroring
+  }
+});
 ```
 
 ## Rendering Methods

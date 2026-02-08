@@ -68,6 +68,12 @@ A modular TypeScript library suite for creating, manipulating, and animating ASC
     - [x] Inline color math optimization
     - [x] Performance documentation (performance-optimization.md)
     - [x] 24-101% performance improvement overall
+  - [x] Character mirroring for flip operations
+    - [x] Horizontal and vertical mirror maps (30+ pairs each)
+    - [x] Opt-in via mirrorChars parameter (backward compatible)
+    - [x] 37 new tests (190 total passing)
+    - [x] Flip transform demo with directional characters
+    - [x] Main demo with asymmetric bouncing shapes
 
 **REVIEW GATE:** [x] Manual testing and verification before Phase 2 - COMPLETE
 

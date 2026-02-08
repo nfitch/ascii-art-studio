@@ -689,10 +689,15 @@ Add optional character mirroring to flip operations, allowing directional charac
 ### Phase 4: Frontend Demo (Optional)
 
 #### Update Flip Transform Demo
-- [ ] Add checkbox: "Mirror characters during flip"
-- [ ] Show side-by-side comparison when enabled
-- [ ] Include example objects with directional characters
-- [ ] Add arrows and box corners to demo objects
+- [x] Include example objects with directional characters
+- [x] Add arrows, brackets, slashes, and box corners to demo object
+- [x] Enable mirrorChars on flip controls
+
+#### Update Main Demo
+- [x] Replace number-filled shapes with directional ASCII art
+- [x] Asymmetric shapes (arrow, bracket-box, diamond, corner-box)
+- [x] Objects orient flips to match travel direction
+- [x] Random hollow vs filled shapes
 
 **REVIEW GATE:** Manual testing complete
 
@@ -704,7 +709,7 @@ Add optional character mirroring to flip operations, allowing directional charac
 - [x] No performance regression (opt-in feature, default behavior unchanged)
 - [x] API documentation updated
 - [x] Design documentation updated
-- [ ] Frontend demo enhanced (optional)
+- [x] Frontend demos enhanced
 - [x] Ready for commit
 
 ## Related Documents
@@ -726,4 +731,5 @@ Add optional character mirroring to flip operations, allowing directional charac
 - Full implementation with horizontal and vertical mirror maps
 - Backward compatible (opt-in via mirrorChars parameter, default false)
 - Complete API and design documentation
-- Ready for commit
+- Flip transform demo updated with directional characters
+- Main demo updated with asymmetric bouncing shapes and direction-based flipping

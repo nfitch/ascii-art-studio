@@ -453,7 +453,8 @@ export function renderDemoDemo(): string {
  */
 function createRandomObject() {
   const influenceRadius = Math.floor(Math.random() * 5) + 3; // 3-7
-  const shape: Shape = 'arrow';
+  const shapes: Shape[] = ['arrow', 'bracket-box', 'diamond', 'corner-box'];
+  const shape = shapes[Math.floor(Math.random() * shapes.length)];
 
   // Random size 5-15
   const size = Math.floor(Math.random() * 11) + 5;

@@ -201,28 +201,22 @@ function generateContent(size: number, shape: Shape, hollow: boolean): (string |
   const fillChar = '↗';
 
   if (shape === 'arrow') {
-    // Chevron arrow shape pointing right with slash edges
+    // Right-pointing arrow: flat left edge, pointed right
+    // Clearly asymmetric - visually different when flipped
     const half = Math.floor(size / 2);
     for (let y = 0; y < size; y++) {
       const row: (string | null)[] = [];
       const distFromCenter = Math.abs(y - half);
       const width = size - distFromCenter;
-      const leftPad = distFromCenter;
 
       for (let x = 0; x < size; x++) {
-        if (x < leftPad || x >= leftPad + width) {
+        if (x >= width) {
           row.push(null);
-        } else if (x === leftPad) {
-          // Left edge - use slashes for top/bottom halves
-          if (y < half) {
-            row.push('/');
-          } else if (y > half) {
-            row.push('\\');
-          } else {
-            row.push('<');
-          }
-        } else if (x === leftPad + width - 1) {
-          // Right tip - use angle bracket at widest, slashes elsewhere
+        } else if (x === 0) {
+          // Flat left edge
+          row.push('║');
+        } else if (x === width - 1) {
+          // Right tip with slashes
           if (y === half) {
             row.push('>');
           } else if (y < half) {
@@ -230,7 +224,7 @@ function generateContent(size: number, shape: Shape, hollow: boolean): (string |
           } else {
             row.push('/');
           }
-        } else if (hollow) {
+        } else if (hollow && x > 0 && y !== 0 && y !== size - 1) {
           row.push(null);
         } else {
           row.push(fillChar);
@@ -239,30 +233,26 @@ function generateContent(size: number, shape: Shape, hollow: boolean): (string |
       content.push(row);
     }
   } else if (shape === 'bracket-box') {
-    // Rectangular box with brackets and horizontal lines
+    // Right-pointing bracket box: flat [ on left, pointed > on right
+    const half = Math.floor(size / 2);
     for (let y = 0; y < size; y++) {
       const row: (string | null)[] = [];
       for (let x = 0; x < size; x++) {
-        if (y === 0 || y === size - 1) {
-          // Top and bottom edges
-          if (x === 0) {
-            row.push('[');
-          } else if (x === size - 1) {
-            row.push(']');
-          } else {
-            row.push('─');
-          }
+        if (x === 0) {
+          // Flat left edge
+          row.push('[');
+        } else if (y === 0 || y === size - 1) {
+          // Top and bottom
+          row.push('─');
+        } else if (x === size - 1 && y === half) {
+          // Right point
+          row.push('>');
+        } else if (x === size - 1) {
+          row.push(null);
+        } else if (hollow) {
+          row.push(null);
         } else {
-          // Middle rows
-          if (x === 0) {
-            row.push('[');
-          } else if (x === size - 1) {
-            row.push(']');
-          } else if (hollow) {
-            row.push(null);
-          } else {
-            row.push(fillChar);
-          }
+          row.push(fillChar);
         }
       }
       content.push(row);
@@ -273,63 +263,67 @@ function generateContent(size: number, shape: Shape, hollow: boolean): (string |
     for (let y = 0; y < size; y++) {
       const row: (string | null)[] = [];
       const distFromCenter = Math.abs(y - half);
-      const width = size - distFromCenter * 2;
-      const leftPad = distFromCenter;
+      const width = Math.min((half - distFromCenter) * 2 + 1, size);
+      const leftPad = Math.floor((size - width) / 2);
 
       for (let x = 0; x < size; x++) {
         if (x < leftPad || x >= leftPad + width) {
           row.push(null);
-        } else if (x === leftPad) {
-          // Left edge
+        } else if (x === leftPad && x === leftPad + width - 1) {
+          // Single-cell point at top/bottom
           row.push(y < half ? '/' : '\\');
+        } else if (x === leftPad) {
+          row.push(y < half ? '/' : (y === half ? '<' : '\\'));
         } else if (x === leftPad + width - 1) {
-          // Right edge
-          row.push(y < half ? '\\' : '/');
-        } else if (y === half) {
-          // Middle row - use angle brackets
-          if (x === leftPad + 1) {
-            row.push('<');
-          } else if (x === leftPad + width - 2) {
-            row.push('>');
-          } else if (hollow) {
-            row.push(null);
-          } else {
-            row.push(fillChar);
-          }
+          row.push(y < half ? '\\' : (y === half ? '>' : '/'));
+        } else if (hollow) {
+          row.push(null);
         } else {
-          // Interior
-          if (hollow) {
-            row.push(null);
-          } else {
-            row.push(fillChar);
-          }
+          row.push(fillChar);
         }
       }
       content.push(row);
     }
   } else if (shape === 'corner-box') {
-    // Box with corner characters and borders
+    // Right-pointing corner box: box on left with arrow point on right
+    const half = Math.floor(size / 2);
+    const boxWidth = Math.max(3, Math.floor(size * 2 / 3));
     for (let y = 0; y < size; y++) {
       const row: (string | null)[] = [];
+      const distFromCenter = Math.abs(y - half);
+      const pointExtent = boxWidth + (half - distFromCenter);
+      const rowWidth = Math.min(pointExtent, size);
+
       for (let x = 0; x < size; x++) {
-        if (y === 0 && x === 0) {
+        if (x >= rowWidth) {
+          row.push(null);
+        } else if (y === 0 && x === 0) {
           row.push('╔');
-        } else if (y === 0 && x === size - 1) {
-          row.push('╗');
         } else if (y === size - 1 && x === 0) {
           row.push('╚');
-        } else if (y === size - 1 && x === size - 1) {
-          row.push('╝');
-        } else if (y === 0 || y === size - 1) {
+        } else if ((y === 0 || y === size - 1) && x < boxWidth) {
           row.push('═');
-        } else if (x === 0 || x === size - 1) {
+        } else if (x === 0) {
           row.push('║');
-        } else {
-          if (hollow) {
+        } else if (x >= boxWidth) {
+          // Arrow point extending right from box
+          if (x === rowWidth - 1) {
+            if (y === half) {
+              row.push('>');
+            } else if (y < half) {
+              row.push('\\');
+            } else {
+              row.push('/');
+            }
+          } else if (hollow) {
             row.push(null);
           } else {
             row.push(fillChar);
           }
+        } else if (hollow) {
+          row.push(null);
+        } else {
+          row.push(fillChar);
         }
       }
       content.push(row);
@@ -459,8 +453,7 @@ export function renderDemoDemo(): string {
  */
 function createRandomObject() {
   const influenceRadius = Math.floor(Math.random() * 5) + 3; // 3-7
-  const shapes: Shape[] = ['arrow', 'bracket-box', 'diamond', 'corner-box'];
-  const shape = shapes[Math.floor(Math.random() * shapes.length)];
+  const shape: Shape = 'arrow';
 
   // Random size 5-15
   const size = Math.floor(Math.random() * 11) + 5;

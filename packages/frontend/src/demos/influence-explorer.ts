@@ -8,6 +8,8 @@ import { Compositor, AsciiObject } from '../../../compositor/src/Compositor';
 let currentFrame = 0;
 const totalFrames = 19;
 let currentMode: 'lighten' | 'multiply' | 'multiply-darken' | 'blue-glows-red' = 'lighten';
+let topLayer = 3;
+let bottomLayer = 1;
 
 // Pre-generate all frames for all variations
 const frames: {
@@ -64,233 +66,77 @@ function generateFrames() {
     { top: { x: 15, y: 4 }, bottom: { x: 17, y: 7 }, curtain: { x: 2, y: 16 } },
   ];
 
-  // Row 1: Lighten (existing)
-  frames.radius2 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#000000',
-      layer: 0,
-      influence: { radius: 2, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#000000',
-        layer: 1,
-        influence: { radius: 2, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#000000',
-      layer: 2,
-      influence: { radius: 2, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    return compositor.render();
-  });
+  interface ModeConfig {
+    topColor: string;
+    bottomColor: string;
+    curtainColor: string;
+    influenceColor?: string;
+    transform: { type: string; strength: number; falloff: string; darkenFactor?: number };
+  }
 
-  frames.radius4 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#000000',
-      layer: 0,
-      influence: { radius: 4, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#000000',
-        layer: 1,
-        influence: { radius: 4, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#000000',
-      layer: 2,
-      influence: { radius: 4, transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    return compositor.render();
-  });
+  const modeConfigs: Record<string, ModeConfig> = {
+    lighten: {
+      topColor: '#000000', bottomColor: '#000000', curtainColor: '#000000',
+      transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' },
+    },
+    multiply: {
+      topColor: '#ff8888', bottomColor: '#8888ff', curtainColor: '#88ff88',
+      transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' },
+    },
+    'multiply-darken': {
+      topColor: '#ff8888', bottomColor: '#8888ff', curtainColor: '#88ff88',
+      transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 },
+    },
+    'blue-glows-red': {
+      topColor: '#0000ff', bottomColor: '#0000ff', curtainColor: '#0000ff',
+      influenceColor: '#ff0000',
+      transform: { type: 'lighten', strength: 1.0, falloff: 'linear' },
+    },
+  };
 
-  // Row 2: Multiply
-  frames.multiplyRadius2 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#8888ff',
-      layer: 0,
-      influence: { radius: 2, transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#88ff88',
-        layer: 1,
-        influence: { radius: 2, transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' } },
+  function renderFrames(radius: number, config: ModeConfig) {
+    return positions.map((pos) => {
+      const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
+      const influence = {
+        radius,
+        ...(config.influenceColor ? { color: config.influenceColor } : {}),
+        transform: config.transform,
+      };
+      compositor.addObject(new AsciiObject({ id: 'bottom',
+        content: ['#####', '#####', '#####', '#####', '#####', '#####'],
+        position: pos.bottom,
+        color: config.bottomColor,
+        layer: bottomLayer,
+        influence,
       }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#ff8888',
-      layer: 2,
-      influence: { radius: 2, transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    return compositor.render();
-  });
+      if (pos.curtain) {
+        compositor.addObject(new AsciiObject({ id: 'curtain',
+          content: Array(12).fill('███████████████████████████████████'),
+          position: pos.curtain,
+          color: config.curtainColor,
+          layer: 2,
+          influence,
+        }));
+      }
+      compositor.addObject(new AsciiObject({ id: 'top',
+        content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
+        position: pos.top,
+        color: config.topColor,
+        layer: topLayer,
+        influence,
+      }));
+      return compositor.render();
+    });
+  }
 
-  frames.multiplyRadius4 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#8888ff',
-      layer: 0,
-      influence: { radius: 4, transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#88ff88',
-        layer: 1,
-        influence: { radius: 4, transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#ff8888',
-      layer: 2,
-      influence: { radius: 4, transform: { type: 'multiply', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    return compositor.render();
-  });
-
-  // Row 3: Multiply-Darken
-  frames.multiplyDarkenRadius2 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#8888ff',
-      layer: 0,
-      influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#88ff88',
-        layer: 1,
-        influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#ff8888',
-      layer: 2,
-      influence: { radius: 2, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 } },
-    }));
-    return compositor.render();
-  });
-
-  frames.multiplyDarkenRadius4 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#8888ff',
-      layer: 0,
-      influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#88ff88',
-        layer: 1,
-        influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#ff8888',
-      layer: 2,
-      influence: { radius: 4, transform: { type: 'multiply-darken', strength: 1.0, falloff: 'quadratic', darkenFactor: 0.3 } },
-    }));
-    return compositor.render();
-  });
-
-  // Row 4: Blue Glows Red
-  frames.blueGlowsRedRadius2 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#0000ff',
-      layer: 0,
-      influence: { radius: 2, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#0000ff',
-        layer: 1,
-        influence: { radius: 2, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#0000ff',
-      layer: 2,
-      influence: { radius: 2, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'linear' } },
-    }));
-    return compositor.render();
-  });
-
-  frames.blueGlowsRedRadius4 = positions.map((pos) => {
-    const compositor = new Compositor([], { x: 0, y: 0, width: viewportWidth, height: viewportHeight });
-    compositor.addObject(new AsciiObject({ id: 'bottom',
-      content: ['#####', '#####', '#####', '#####', '#####', '#####'],
-      position: pos.bottom,
-      color: '#0000ff',
-      layer: 0,
-      influence: { radius: 4, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    if (pos.curtain) {
-      compositor.addObject(new AsciiObject({ id: 'curtain',
-        content: Array(12).fill('███████████████████████████████████'),
-        position: pos.curtain,
-        color: '#0000ff',
-        layer: 1,
-        influence: { radius: 4, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-      }));
-    }
-    compositor.addObject(new AsciiObject({ id: 'top',
-      content: ['@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@', '@@@@@'],
-      position: pos.top,
-      color: '#0000ff',
-      layer: 2,
-      influence: { radius: 4, color: '#ff0000', transform: { type: 'lighten', strength: 1.0, falloff: 'quadratic' } },
-    }));
-    return compositor.render();
-  });
+  frames.radius2 = renderFrames(2, modeConfigs.lighten);
+  frames.radius4 = renderFrames(4, modeConfigs.lighten);
+  frames.multiplyRadius2 = renderFrames(2, modeConfigs.multiply);
+  frames.multiplyRadius4 = renderFrames(4, modeConfigs.multiply);
+  frames.multiplyDarkenRadius2 = renderFrames(2, modeConfigs['multiply-darken']);
+  frames.multiplyDarkenRadius4 = renderFrames(4, modeConfigs['multiply-darken']);
+  frames.blueGlowsRedRadius2 = renderFrames(2, modeConfigs['blue-glows-red']);
+  frames.blueGlowsRedRadius4 = renderFrames(4, modeConfigs['blue-glows-red']);
 }
 
 function getHtml(): string {
@@ -351,6 +197,17 @@ function getHtml(): string {
             <option value="multiply-darken" ${currentMode === 'multiply-darken' ? 'selected' : ''}>Multiply-Darken (Color)</option>
             <option value="blue-glows-red" ${currentMode === 'blue-glows-red' ? 'selected' : ''}>Blue Glows Red</option>
           </select>
+        </div>
+        <div class="control-group">
+          <span class="control-label">@@@@@ Layer:</span>
+          <select onchange="influenceExplorerChangeTopLayer(Number(this.value))">
+            ${[0,1,2,3,4].map(l => `<option value="${l}" ${topLayer === l ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <span class="control-label">##### Layer:</span>
+          <select onchange="influenceExplorerChangeBottomLayer(Number(this.value))">
+            ${[0,1,2,3,4].map(l => `<option value="${l}" ${bottomLayer === l ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <span style="font-size: 0.8em; opacity: 0.7;">(curtain fixed at layer 2)</span>
         </div>
         <div class="control-group">
           <button onclick="influenceExplorerPrevFrame()" ${currentFrame === 0 ? 'disabled' : ''}>Previous Frame</button>
@@ -415,6 +272,18 @@ function renderOutput(output: { characters: string[][]; colors: string[][] }): s
 
 (window as any).influenceExplorerChangeMode = (mode: 'lighten' | 'multiply' | 'multiply-darken' | 'blue-glows-red') => {
   currentMode = mode;
+  updateDisplay();
+};
+
+(window as any).influenceExplorerChangeTopLayer = (layer: number) => {
+  topLayer = layer;
+  generateFrames();
+  updateDisplay();
+};
+
+(window as any).influenceExplorerChangeBottomLayer = (layer: number) => {
+  bottomLayer = layer;
+  generateFrames();
   updateDisplay();
 };
 

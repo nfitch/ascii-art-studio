@@ -99,8 +99,8 @@ export class Compositor {
   /** Default viewport for render() calls */
   private defaultViewport?: Viewport;
 
-  /** Dirty regions tracked as coordinate strings "x,y" */
-  private dirtyRegions: Set<string> = new Set();
+  /** Whether the scene has changed since last render */
+  private dirty: boolean = false;
 
   /** Last rendered viewport for cache validation */
   private lastViewport?: Viewport;
@@ -140,7 +140,7 @@ export class Compositor {
     }
 
     this.objects.set(obj.id, obj);
-    this.markRegionDirty(obj.getBounds());
+    this.dirty = true;
   }
 
   /**
@@ -153,7 +153,7 @@ export class Compositor {
    */
   removeObject(id: string): void {
     const obj = this.getObjectOrThrow(id);
-    this.markRegionDirty(obj.getBounds());
+    this.dirty = true;
     this.objects.delete(id);
   }
 
@@ -209,7 +209,7 @@ export class Compositor {
       this.layerEffects.delete(layer);
       this.layerEffectRGBs.delete(layer);
       // Mark entire viewport dirty since layer effect affects everything
-      this.dirtyRegions.add('layer-effect');
+      this.dirty = true;
       return;
     }
 
@@ -244,7 +244,7 @@ export class Compositor {
     this.layerEffectRGBs.set(layer, parseHexColor(normalizedColor));
 
     // Mark entire viewport dirty
-    this.dirtyRegions.add('layer-effect');
+    this.dirty = true;
   }
 
   /**
@@ -323,7 +323,7 @@ export class Compositor {
       if (obj.isDirty()) {
         const dirtyBounds = obj.getDirtyBounds();
         if (dirtyBounds) {
-          this.markRegionDirty(dirtyBounds);
+          this.dirty = true;
         }
         obj.clearDirty();
       }
@@ -341,7 +341,7 @@ export class Compositor {
       this.cachedOutput &&
       this.lastViewport &&
       this.viewportsEqual(vp, this.lastViewport) &&
-      this.dirtyRegions.size === 0
+      !this.dirty
     ) {
       // Return a deep clone to prevent cache corruption from user mutations
       return {
@@ -359,7 +359,7 @@ export class Compositor {
       colors: output.colors.map(row => [...row]),
     };
     this.lastViewport = { ...vp };
-    this.dirtyRegions.clear();
+    this.dirty = false;
 
     return output;
   }
@@ -672,20 +672,6 @@ export class Compositor {
    */
   private isValidColor(color: string): boolean {
     return /^#[0-9A-Fa-f]{6}$/.test(color);
-  }
-
-  /**
-   * Marks a rectangular region as dirty for cache invalidation.
-   *
-   * Iterates through all cells in the bounding box and adds their coordinates
-   * to the dirty regions set. This invalidates the viewport cache.
-   */
-  private markRegionDirty(bounds: Bounds): void {
-    for (let y = bounds.minY; y <= bounds.maxY; y++) {
-      for (let x = bounds.minX; x <= bounds.maxX; x++) {
-        this.dirtyRegions.add(`${x},${y}`);
-      }
-    }
   }
 
   /**

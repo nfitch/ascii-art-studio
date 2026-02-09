@@ -11,26 +11,12 @@ let currentMode: 'lighten' | 'multiply' | 'multiply-darken' | 'blue-glows-red' =
 let topLayer = 3;
 let bottomLayer = 1;
 
-// Pre-generate all frames for all variations
-const frames: {
-  radius2: { characters: string[][]; colors: string[][] }[];
-  radius4: { characters: string[][]; colors: string[][] }[];
-  multiplyRadius2: { characters: string[][]; colors: string[][] }[];
-  multiplyRadius4: { characters: string[][]; colors: string[][] }[];
-  multiplyDarkenRadius2: { characters: string[][]; colors: string[][] }[];
-  multiplyDarkenRadius4: { characters: string[][]; colors: string[][] }[];
-  blueGlowsRedRadius2: { characters: string[][]; colors: string[][] }[];
-  blueGlowsRedRadius4: { characters: string[][]; colors: string[][] }[];
-} = {
-  radius2: [],
-  radius4: [],
-  multiplyRadius2: [],
-  multiplyRadius4: [],
-  multiplyDarkenRadius2: [],
-  multiplyDarkenRadius4: [],
-  blueGlowsRedRadius2: [],
-  blueGlowsRedRadius4: [],
-};
+type FrameOutput = { characters: string[][]; colors: string[][] };
+const modes = ['lighten', 'multiply', 'multiply-darken', 'blue-glows-red'] as const;
+const radii = [2, 4] as const;
+
+// Pre-generate all frames for all mode × radius combinations
+const frames: Record<string, Record<number, FrameOutput[]>> = {};
 
 export function renderInfluenceExplorerDemo(): string {
   // Generate all frames for all variations
@@ -129,14 +115,12 @@ function generateFrames() {
     });
   }
 
-  frames.radius2 = renderFrames(2, modeConfigs.lighten);
-  frames.radius4 = renderFrames(4, modeConfigs.lighten);
-  frames.multiplyRadius2 = renderFrames(2, modeConfigs.multiply);
-  frames.multiplyRadius4 = renderFrames(4, modeConfigs.multiply);
-  frames.multiplyDarkenRadius2 = renderFrames(2, modeConfigs['multiply-darken']);
-  frames.multiplyDarkenRadius4 = renderFrames(4, modeConfigs['multiply-darken']);
-  frames.blueGlowsRedRadius2 = renderFrames(2, modeConfigs['blue-glows-red']);
-  frames.blueGlowsRedRadius4 = renderFrames(4, modeConfigs['blue-glows-red']);
+  for (const mode of modes) {
+    frames[mode] = {};
+    for (const radius of radii) {
+      frames[mode][radius] = renderFrames(radius, modeConfigs[mode]);
+    }
+  }
 }
 
 function getHtml(): string {
@@ -162,15 +146,8 @@ function getHtml(): string {
     'Frame 19: Curtain Exits',
   ];
 
-  // Get the appropriate frames for the current mode
-  const radius2Frames = currentMode === 'lighten' ? frames.radius2 :
-                        currentMode === 'multiply' ? frames.multiplyRadius2 :
-                        currentMode === 'multiply-darken' ? frames.multiplyDarkenRadius2 :
-                        frames.blueGlowsRedRadius2;
-  const radius4Frames = currentMode === 'lighten' ? frames.radius4 :
-                        currentMode === 'multiply' ? frames.multiplyRadius4 :
-                        currentMode === 'multiply-darken' ? frames.multiplyDarkenRadius4 :
-                        frames.blueGlowsRedRadius4;
+  const radius2Frames = frames[currentMode][2];
+  const radius4Frames = frames[currentMode][4];
 
   const modeDescriptions = {
     'lighten': 'Lighten (Black & White)',

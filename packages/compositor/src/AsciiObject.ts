@@ -61,6 +61,18 @@ const VERTICAL_MIRROR_MAP: Record<string, string> = {
   '⇑': '⇓', '⇓': '⇑',
 };
 
+/** RGB color tuple [r, g, b] where each component is 0-255 */
+export type RGB = [number, number, number];
+
+/** Parses a hex color string (#RRGGBB) to an RGB tuple */
+export function parseHexColor(hex: string): RGB {
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ];
+}
+
 /** Represents a single cell in the ASCII grid. null = transparent, string = visible character */
 export type Cell = string | null;
 
@@ -146,8 +158,14 @@ export class AsciiObject {
   /** Hex color in #RRGGBB format */
   public color: string;
 
+  /** Pre-parsed RGB tuple of color (kept in sync with color) */
+  public colorRGB: RGB;
+
   /** Influence configuration */
   public influence?: Influence;
+
+  /** Pre-parsed RGB of influence color (cached for render performance) */
+  public influenceColorRGB?: RGB;
 
   /** True if object is flipped horizontally */
   public flipHorizontal: boolean = false;
@@ -196,8 +214,12 @@ export class AsciiObject {
 
     this.position = { ...options.position };
     this.color = (options.color || '#000000').toLowerCase();
+    this.colorRGB = parseHexColor(this.color);
     this.layer = options.layer ?? 0;
     this.influence = options.influence ? this.cloneInfluence(options.influence) : undefined;
+    if (this.influence?.color) {
+      this.influenceColorRGB = parseHexColor(this.influence.color);
+    }
 
     // Validate layer is integer
     if (!Number.isInteger(this.layer)) {
@@ -287,6 +309,7 @@ export class AsciiObject {
     }
 
     this.color = normalizedColor;
+    this.colorRGB = parseHexColor(normalizedColor);
 
     // Mark bounds dirty (color change affects render)
     this._dirtyBounds = this.unionBounds(this._dirtyBounds, this.getBounds());
@@ -304,6 +327,7 @@ export class AsciiObject {
 
     // Update influence
     this.influence = influence ? this.cloneInfluence(influence) : undefined;
+    this.influenceColorRGB = this.influence?.color ? parseHexColor(this.influence.color) : undefined;
 
     // Invalidate cached data
     this._maskInvalidated = true;

@@ -8,10 +8,22 @@
  * @module @ascii-art-studio/compositor
  */
 
-import { AsciiObject, type Influence, type Bounds } from './AsciiObject';
+import { AsciiObject, type Influence, type Bounds, type RGB, parseHexColor } from './AsciiObject';
 
 // Re-export types for public API
 export { AsciiObject, type Influence };
+
+/** Pre-computed hex lookup table: index 0-255 → '00'..'ff' */
+const HEX_LUT: string[] = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+
+/** Convert RGB tuple to hex string */
+function rgbToHex(rgb: RGB): string {
+  return `#${HEX_LUT[rgb[0]]}${HEX_LUT[rgb[1]]}${HEX_LUT[rgb[2]]}`;
+}
+
+/** RGB black constant */
+const RGB_BLACK: RGB = [0, 0, 0];
+const RGB_WHITE: RGB = [255, 255, 255];
 
 /**
  * Uniform color effect applied to an entire layer.
@@ -80,6 +92,9 @@ export class Compositor {
 
   /** Layer effects stored by layer number */
   private layerEffects: Map<number, LayerEffect> = new Map();
+
+  /** Pre-parsed RGB for layer effect colors */
+  private layerEffectRGBs: Map<number, RGB> = new Map();
 
   /** Default viewport for render() calls */
   private defaultViewport?: Viewport;
@@ -192,6 +207,7 @@ export class Compositor {
   setLayerEffect(layer: number, effect: LayerEffect | null): void {
     if (effect === null) {
       this.layerEffects.delete(layer);
+      this.layerEffectRGBs.delete(layer);
       // Mark entire viewport dirty since layer effect affects everything
       this.dirtyRegions.add('layer-effect');
       return;
@@ -218,12 +234,14 @@ export class Compositor {
     }
 
     // Store deep clone to prevent external mutations
+    const normalizedColor = effect.color.toLowerCase();
     this.layerEffects.set(layer, {
-      color: effect.color.toLowerCase(),
+      color: normalizedColor,
       type: effect.type,
       strength: effect.strength,
       ...(effect.darkenFactor !== undefined && { darkenFactor: effect.darkenFactor }),
     });
+    this.layerEffectRGBs.set(layer, parseHexColor(normalizedColor));
 
     // Mark entire viewport dirty
     this.dirtyRegions.add('layer-effect');
@@ -411,11 +429,11 @@ export class Compositor {
    * @returns Rendered character and color
    */
   private renderCell(x: number, y: number, layers: number[], layerObjectsCache: Map<number, AsciiObject[]>): { char: string; color: string } {
-    // Working color accumulates influence transforms (affects background view from below)
-    let workingColor = '#000000';
-    // Collect all transforms (layer effects and influences) to apply to final content color
+    // Working color accumulates influence transforms as RGB (no hex parsing)
+    let wR = 0, wG = 0, wB = 0;
+    // Collect all transforms to apply to final content color (uses pre-parsed RGB)
     const transformsToApply: Array<{
-      targetColor: string; // Color to interpolate toward (for lighten/darken) or multiply by
+      tR: number; tG: number; tB: number; // target color RGB
       type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
       strength: number;
       darkenFactor?: number;
@@ -428,8 +446,9 @@ export class Compositor {
       // Collect layer effect as a transform
       const layerEffect = this.layerEffects.get(layer);
       if (layerEffect && layerEffect.strength > 0) {
+        const rgb = this.layerEffectRGBs.get(layer)!;
         transformsToApply.push({
-          targetColor: layerEffect.color,
+          tR: rgb[0], tG: rgb[1], tB: rgb[2],
           type: layerEffect.type,
           strength: layerEffect.strength,
           darkenFactor: layerEffect.darkenFactor,
@@ -479,142 +498,130 @@ export class Compositor {
 
               if (cell !== null && cell !== ' ') {
                 // Non-space character - apply all transforms to object color
-                let finalColor = obj.color;
-                for (let j = transformsToApply.length - 1; j >= 0; j--) {
-                  finalColor = this.applyTransform(finalColor, transformsToApply[j]);
+                if (transformsToApply.length === 0) {
+                  return { char: cell, color: obj.color };
                 }
-                return { char: cell, color: finalColor };
+                let fR = obj.colorRGB[0], fG = obj.colorRGB[1], fB = obj.colorRGB[2];
+                for (let j = transformsToApply.length - 1; j >= 0; j--) {
+                  const result = this.applyTransformRGB(fR, fG, fB, transformsToApply[j]);
+                  fR = result[0]; fG = result[1]; fB = result[2];
+                }
+                return { char: cell, color: rgbToHex([fR, fG, fB]) };
               } else if (cell === ' ' && obj.influence) {
-                // Glass pane effect: space with influence - collect as transform and apply to working color
+                // Glass pane effect: space with influence
                 const strength = obj.influence.transform.strength;
-                const targetColor =
-                  obj.influence.transform.type === 'lighten' ? (obj.influence.color ?? '#ffffff') :
-                  obj.influence.transform.type === 'darken' ? (obj.influence.color ?? '#000000') :
-                  (obj.influence.color ?? obj.color);
+                const infType = obj.influence.transform.type;
+                const targetRGB = this.getInfluenceTargetRGB(obj, infType);
 
-                // Collect for later application to content
                 const transform = {
-                  targetColor,
-                  type: obj.influence.transform.type,
+                  tR: targetRGB[0], tG: targetRGB[1], tB: targetRGB[2],
+                  type: infType,
                   strength,
                   darkenFactor: obj.influence.transform.darkenFactor,
                 };
                 transformsToApply.push(transform);
 
-                // Also apply to working color for background (inline for performance)
-                workingColor = this.applyTransform(workingColor, transform);
-                // Continue to next layer (don't return)
+                // Apply to working color
+                const result = this.applyTransformRGB(wR, wG, wB, transform);
+                wR = result[0]; wG = result[1]; wB = result[2];
               } else if (cell !== null) {
                 // Space without influence - apply all transforms to object color
-                let finalColor = obj.color;
-                for (let j = transformsToApply.length - 1; j >= 0; j--) {
-                  finalColor = this.applyTransform(finalColor, transformsToApply[j]);
+                if (transformsToApply.length === 0) {
+                  return { char: cell, color: obj.color };
                 }
-                return { char: cell, color: finalColor };
+                let fR = obj.colorRGB[0], fG = obj.colorRGB[1], fB = obj.colorRGB[2];
+                for (let j = transformsToApply.length - 1; j >= 0; j--) {
+                  const result = this.applyTransformRGB(fR, fG, fB, transformsToApply[j]);
+                  fR = result[0]; fG = result[1]; fB = result[2];
+                }
+                return { char: cell, color: rgbToHex([fR, fG, fB]) };
               }
             }
           }
 
           // maskValue < 100: influence gradient (not content)
-          // Collect as transform and apply to working color
           if (maskValue > 0 && maskValue < 100) {
+            const infType = obj.influence!.transform.type;
             const strength = (maskValue / 100) * obj.influence!.transform.strength;
-            const targetColor =
-              obj.influence!.transform.type === 'lighten' ? (obj.influence!.color ?? '#ffffff') :
-              obj.influence!.transform.type === 'darken' ? (obj.influence!.color ?? '#000000') :
-              (obj.influence!.color ?? obj.color);
+            const targetRGB = this.getInfluenceTargetRGB(obj, infType);
 
-            // Collect for later application to content
             const transform = {
-              targetColor,
-              type: obj.influence!.transform.type,
+              tR: targetRGB[0], tG: targetRGB[1], tB: targetRGB[2],
+              type: infType,
               strength,
               darkenFactor: obj.influence!.transform.darkenFactor,
             };
             transformsToApply.push(transform);
 
-            // Also apply to working color for background (inline for performance)
-            workingColor = this.applyTransform(workingColor, transform);
+            // Apply to working color
+            const result = this.applyTransformRGB(wR, wG, wB, transform);
+            wR = result[0]; wG = result[1]; wB = result[2];
           }
         }
       }
     }
 
-    // No content found at this position - apply all transforms to working color
-    let finalColor = workingColor;
-    for (let j = transformsToApply.length - 1; j >= 0; j--) {
-      finalColor = this.applyTransform(finalColor, transformsToApply[j]);
+    // No content found - apply all transforms to working color
+    if (transformsToApply.length === 0) {
+      return { char: ' ', color: '#000000' };
     }
-    return { char: ' ', color: finalColor };
+    let fR = wR, fG = wG, fB = wB;
+    for (let j = transformsToApply.length - 1; j >= 0; j--) {
+      const result = this.applyTransformRGB(fR, fG, fB, transformsToApply[j]);
+      fR = result[0]; fG = result[1]; fB = result[2];
+    }
+    return { char: ' ', color: rgbToHex([fR, fG, fB]) };
   }
 
   /**
-   * Converts a number (0-255) to a 2-digit hex string.
+   * Gets the pre-parsed RGB for an object's influence target color.
    */
-  private toHex(value: number): string {
-    return value.toString(16).padStart(2, '0');
+  private getInfluenceTargetRGB(obj: AsciiObject, type: string): RGB {
+    if (obj.influenceColorRGB) return obj.influenceColorRGB;
+    if (type === 'lighten') return RGB_WHITE;
+    if (type === 'darken') return RGB_BLACK;
+    return obj.colorRGB;
   }
 
   /**
-   * Applies a color transform with inlined color math for performance.
-   * Combines interpolation and multiply logic in a single function to enable JIT optimization.
-   *
-   * @param baseColor - Starting color in #RRGGBB format
-   * @param transform - Transform to apply
-   * @returns Transformed color in #RRGGBB format
+   * Applies a color transform using RGB tuples directly (no hex parsing).
    */
-  private applyTransform(
-    baseColor: string,
+  private applyTransformRGB(
+    r1: number, g1: number, b1: number,
     transform: {
-      targetColor: string;
+      tR: number; tG: number; tB: number;
       type: 'lighten' | 'darken' | 'multiply' | 'multiply-darken';
       strength: number;
       darkenFactor?: number;
     }
-  ): string {
-    // Parse base color (inline to avoid function call overhead)
-    const r1 = parseInt(baseColor.slice(1, 3), 16);
-    const g1 = parseInt(baseColor.slice(3, 5), 16);
-    const b1 = parseInt(baseColor.slice(5, 7), 16);
-
-    // Parse target color
-    const r2 = parseInt(transform.targetColor.slice(1, 3), 16);
-    const g2 = parseInt(transform.targetColor.slice(3, 5), 16);
-    const b2 = parseInt(transform.targetColor.slice(5, 7), 16);
-
-    let finalR: number;
-    let finalG: number;
-    let finalB: number;
-
+  ): RGB {
     if (transform.type === 'lighten' || transform.type === 'darken') {
-      // Interpolation (inline)
       const t = Math.max(0, Math.min(1, transform.strength));
-      finalR = Math.round(r1 + (r2 - r1) * t);
-      finalG = Math.round(g1 + (g2 - g1) * t);
-      finalB = Math.round(b1 + (b2 - b1) * t);
-    } else {
-      // Multiply (inline)
-      let mr2 = r2;
-      let mg2 = g2;
-      let mb2 = b2;
-
-      if (transform.type === 'multiply-darken') {
-        const factor = transform.darkenFactor || 0.8;
-        mr2 = Math.round(r2 * factor);
-        mg2 = Math.round(g2 * factor);
-        mb2 = Math.round(b2 * factor);
-      }
-
-      const r = Math.round((r1 / 255) * (mr2 / 255) * 255);
-      const g = Math.round((g1 / 255) * (mg2 / 255) * 255);
-      const b = Math.round((b1 / 255) * (mb2 / 255) * 255);
-
-      finalR = Math.round(r1 + (r - r1) * transform.strength);
-      finalG = Math.round(g1 + (g - g1) * transform.strength);
-      finalB = Math.round(b1 + (b - b1) * transform.strength);
+      return [
+        Math.round(r1 + (transform.tR - r1) * t),
+        Math.round(g1 + (transform.tG - g1) * t),
+        Math.round(b1 + (transform.tB - b1) * t),
+      ];
     }
 
-    return `#${this.toHex(finalR)}${this.toHex(finalG)}${this.toHex(finalB)}`;
+    // Multiply
+    let mr = transform.tR, mg = transform.tG, mb = transform.tB;
+    if (transform.type === 'multiply-darken') {
+      const factor = transform.darkenFactor || 0.8;
+      mr = Math.round(mr * factor);
+      mg = Math.round(mg * factor);
+      mb = Math.round(mb * factor);
+    }
+
+    const r = Math.round((r1 / 255) * (mr / 255) * 255);
+    const g = Math.round((g1 / 255) * (mg / 255) * 255);
+    const b = Math.round((b1 / 255) * (mb / 255) * 255);
+
+    return [
+      Math.round(r1 + (r - r1) * transform.strength),
+      Math.round(g1 + (g - g1) * transform.strength),
+      Math.round(b1 + (b - b1) * transform.strength),
+    ];
   }
 
   /**

@@ -762,20 +762,6 @@ export class AsciiObject {
   }
 
   /**
-   * Flips content matrix horizontally.
-   */
-  private flipContentHorizontal(content: Cell[][]): Cell[][] {
-    return content.map(row => [...row].reverse());
-  }
-
-  /**
-   * Flips content matrix vertically.
-   */
-  private flipContentVertical(content: Cell[][]): Cell[][] {
-    return [...content].reverse();
-  }
-
-  /**
    * Deep clones a content matrix.
    */
   private cloneContent(content: Cell[][]): Cell[][] {

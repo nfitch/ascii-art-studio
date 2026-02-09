@@ -303,47 +303,119 @@ Two optimizations kept:
 5. **Measure everything** - Every change was benchmarked before keeping/reverting
 6. **One good optimization beats many bad ones** - Focus on high-impact changes
 
+---
+
+## Round 2 Optimization (2026-02-08)
+
+### Pre-Round 2 Baseline
+
+After Round 1 optimizations and subsequent feature additions (character mirroring, layer effects expansion), new baseline was taken:
+
+| Benchmark | Operations/sec | Milliseconds |
+|-----------|----------------|--------------|
+| simple render (1 object, no effects) | 193,420 hz | 0.0052ms |
+| medium complexity (10 objects) | 23,296 hz | 0.0429ms |
+| high complexity (50 objects) | 6,662 hz | 0.1501ms |
+| large viewport (100x100) | 2,615 hz | 0.3824ms |
+| very large viewport (500x500) | 101 hz | 9.94ms |
+| single object with influence | 23,892 hz | 0.0419ms |
+| multiple objects with overlapping influence | 2,600 hz | 0.3846ms |
+| single layer with effect | 21,725 hz | 0.0460ms |
+| multiple layers with stacking effects | 7,129 hz | 0.1403ms |
+| large content object (50x50 grid) | 1,638 hz | 0.6106ms |
+| horizontal flip | 1,342,890 hz | 0.0007ms |
+| vertical flip | 705,359 hz | 0.0014ms |
+
+### Optimization 5: Internal RGB Tuples (KEPT)
+
+**Problem:** `applyTransform` parsed hex strings (`parseInt(color.slice(...), 16)`) on every call — 6 `parseInt` calls per transform application, potentially millions per frame for large viewports with effects.
+
+**Solution:**
+- Added `colorRGB: RGB` and `influenceColorRGB?: RGB` cached fields on `AsciiObject`, computed at construction and in `setColor`/`setInfluence`
+- Added `layerEffectRGBs` parallel cache in `Compositor`
+- Replaced `applyTransform(hexString, ...)` with `applyTransformRGB(r, g, b, ...)` operating entirely on numeric tuples
+- Added pre-computed `HEX_LUT[256]` for fast output conversion via `rgbToHex()`
+- Short-circuit paths return original hex strings when no transforms applied (avoids any RGB→hex conversion for simple scenes)
+- Exported `parseHexColor()` and `RGB` type from AsciiObject module
+
+**Results vs pre-Round 2 baseline:**
+| Benchmark | Before | After | Change |
+|-----------|--------|-------|--------|
+| single object with influence | 23,892 | 39,495 | **+65%** |
+| overlapping influence | 2,600 | 5,976 | **+130%** |
+| single layer effect | 21,725 | 70,816 | **+226%** |
+| multiple layer effects | 7,129 | 32,522 | **+356%** |
+| simple render / large viewport | unchanged | unchanged | within noise |
+
+### Optimization 6: Boolean Dirty Flag (KEPT)
+
+**Problem:** `markRegionDirty` created `"${x},${y}"` strings for every cell in a dirty bounding box and stored them in a `Set<string>`. For a 50×50 object with radius-4 influence, that's ~3,400 string allocations per mutation. But the cache is whole-viewport — any dirty region invalidates everything.
+
+**Solution:** Replaced `dirtyRegions: Set<string>` with `dirty: boolean`. Removed `markRegionDirty` method entirely.
+
+**Results (cumulative vs pre-Round 2 baseline):**
+| Benchmark | Before | After | Change |
+|-----------|--------|-------|--------|
+| single influence | 23,892 | 60,797 | **+154%** |
+| overlapping influence | 2,600 | 12,396 | **+377%** |
+| large content 50x50 | 1,638 | 5,291 | **+223%** |
+| horizontal flip | 1,342,890 | 2,082,353 | **+55%** |
+| vertical flip | 705,359 | 1,522,767 | **+116%** |
+| autoDetectEdges | 83,682 | 121,713 | **+45%** |
+
+### Optimization 7: Pre-allocated Output Arrays (REVERTED)
+
+**Problem:** `renderCell` returned `{ char, color }` per cell — potentially 250K tiny object allocations per frame for a 500x500 viewport.
+
+**Solution:** Changed `renderCell` to write directly to pre-allocated row arrays by index.
+
+**Result:** No measurable improvement. V8's escape analysis already eliminates the short-lived objects. Slight regressions in some benchmarks likely due to increased function parameter count. Reverted for code clarity.
+
+### Optimization 8: Distance Lookup Table (SKIPPED)
+
+**Problem:** `generateInfluenceMask` calls `Math.sqrt(dx*dx + dy*dy)` per-cell per-radius.
+
+**Assessment:** Mask generation is a one-time cost per object content change, cached by the mask system. Not a hot-path bottleneck. Skipped.
+
+### Round 2 Cleanup
+
+Also removed dead code from Round 1:
+- `interpolateColor` and `applyLayerMultiply` (superseded by `applyTransform`)
+- `flipContentHorizontal` and `flipContentVertical` (superseded by inline flip logic)
+
+### Round 2 Lessons
+
+1. **Hex parsing is expensive in hot loops** — pre-parsed RGB tuples provide massive gains for effect-heavy scenes
+2. **Short-circuit the common case** — returning original hex strings when no transforms are applied avoids regression on simple scenes
+3. **Granular dirty tracking is wasted when cache is all-or-nothing** — a boolean flag eliminates O(n²) string allocations
+4. **V8 escape analysis is real** — manually eliminating short-lived return objects didn't help; the engine already does this
+5. **Trade memory for CPU** — cached RGB tuples on every object are cheap memory; eliminating per-frame parsing is huge CPU savings
+
 ## Remaining Optimization Potential
 
 Further improvements possible but not necessary for current use cases:
 
 **Potential Future Optimizations:**
-- Use typed arrays for color calculations (Uint8Array for RGB)
 - SIMD operations for batch color transformations
 - Worker threads for parallel viewport rendering
 - Spatial indexing (quadtree) for very large object counts (1000+ objects)
 
 **Current Assessment:**
-Performance is excellent for all anticipated use cases. Further optimization would provide diminishing returns and increase code complexity. The current implementation strikes the right balance between performance and maintainability.
+Performance is excellent for all anticipated use cases. Effect-heavy scenes improved 2-5x in Round 2 on top of Round 1 gains. Further optimization would provide diminishing returns and increase code complexity.
 
 ## Related Documents
 
 - [Phase 1 Compositor Design](phase-1-compositor-design.md) - Overall design and architecture
 - [Phase 1 Compositor API](phase-1-compositor-api.md) - TypeScript API specification
-- [Performance Optimization Log](../packages/compositor/logs/performance-optimization-2025-12-29.md) - Detailed optimization log with all benchmark data
+- [Performance Optimization Log](../packages/compositor/logs/performance-optimization-2025-12-29.md) - Detailed Round 1 optimization log
 
 ## Implementation Details
 
 **Modified Files:**
 - `/packages/compositor/src/Compositor.ts` - Core implementation with optimizations
-
-**Key Changes:**
-
-1. **Layer Object Caching (lines 679-683):**
-```typescript
-const layerObjectsCache = new Map<number, InternalObject[]>();
-for (const layer of layers) {
-  layerObjectsCache.set(layer, this.getObjectsOnLayer(layer));
-}
-```
-
-2. **applyTransform Helper (lines 903-963):**
-   - Combines interpolation and multiply logic
-   - Inlines color parsing
-   - Eliminates code duplication
-   - Enables JIT optimization
+- `/packages/compositor/src/AsciiObject.ts` - RGB caching, dead code removal
 
 **Test Coverage:**
-- All 153 tests pass
+- All 190 tests pass
 - No regressions in functionality
 - Performance benchmarks validate improvements
